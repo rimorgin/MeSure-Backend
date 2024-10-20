@@ -1,4 +1,5 @@
 import cv2
+import imutils
 
 
 class HomogeneousBgDetector():
@@ -11,11 +12,14 @@ class HomogeneousBgDetector():
 
         # Create a Mask with adaptive threshold
         mask = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 19, 5)
+        mask = cv2.erode(mask, None, iterations=2)
+        mask = cv2.dilate(mask, None, iterations=2)
 
         # Find contours
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
 
-        #cv2.imshow("mask", mask)
+        cv2.imshow("mask", mask)
         objects_contours = []
 
         for cnt in contours:
