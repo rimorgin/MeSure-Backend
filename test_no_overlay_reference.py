@@ -46,70 +46,80 @@ def trackFinger(image):
     processed_image = processor.process_hand_image(image)  # Ensure this returns a NumPy array
     return processed_image  # Return the processed image directly
     
-# ... [initial imports and global variables remain unchanged]
-
-def process_image(image):
-    # Convert the image to grayscale and blur it slightly
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    gray = cv2.GaussianBlur(gray, (11, 11), 0)
-
-    # Perform edge detection
-    edged = cv2.Canny(gray, 50, 100)
-    edged = cv2.dilate(edged, None, iterations=1)
-    edged = cv2.erode(edged, None, iterations=1)
-
-    # Find contours
-    cnts = cv2.findContours(edged.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    cnts = imutils.grab_contours(cnts)
-
-    # Sort contours from top to bottom
-    cnts, _ = contours.sort_contours(cnts, method='top-to-bottom')
-
-    return cnts
-
 # Construct the argument parser and parse the arguments
 ap = argparse.ArgumentParser()
 ap.add_argument("-i", "--image", required=True, help="path to the input image")
 ap.add_argument("-w", "--width", type=float, required=True, help="width of the reference object in mm")
 args = vars(ap.parse_args())
 
-# Load the original image
-orig_image = cv2.imread(args["image"])
-reference_width = args["width"]
-
-# Process the original image
-reference_cnts = process_image(orig_image)
-if reference_cnts:
-    calSize = BoundingBoxAnalyzer(orig_image, args["width"])
-    reference_cnt = reference_cnts[0]  # Reference object
-    calSize.cal_reference_size(reference_cnt)
-    cv2.imshow('orig image', orig_image)
-    cv2.waitKey(0)
-
 # Load the background-removed image
 output_filename = os.path.splitext(args['image'])[0] + 'BG.jpg'
+
 noBG = removeBG(args["image"], output_filename)
 noBG = trackFinger(noBG)
 
-# Process the background-removed image
-finger_cnts = process_image(noBG)
-if finger_cnts:
-    hand_cnts = finger_cnts[1:]  # Skip the first contour if it's the reference object
-    hand_cnts, _ = contours.sort_contours(hand_cnts, method="top-to-bottom")
+img = noBG.copy()
 
-    # Filter small contours
-    min_area = 1000
-    finger_cnts = [c for c in hand_cnts if cv2.contourArea(c) > min_area]
+#orig = cv2.imread(args['image'])
 
-    # Process each finger contour
-    for (i, c) in enumerate(finger_cnts):
+# Convert the image to grayscale and blur it slightly
+gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+gray = cv2.GaussianBlur(gray, (11, 11), 0)
+
+# Perform edge detection
+edged = cv2.Canny(gray, 50, 100)
+edged = cv2.dilate(edged, None, iterations=1)
+edged = cv2.erode(edged, None, iterations=1)
+
+cv2.imshow('edge detection', edged)
+
+cnts = cv2.findContours(edged.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+cnts = imutils.grab_contours(cnts)
+
+# Sort contours from top to bottom
+cnts,_ = contours.sort_contours(cnts, method='top-to-bottom')
+
+# Check if any contours were found
+if len(cnts) == 0:
+    print("No contours found.")
+else:
+    
+    calSize = BoundingBoxAnalyzer(img, args["width"])
+    
+    # initialize the reference object as the first contour on sorted list
+    reference_cnts = cnts[0]  
+    
+    # Measure the reference object
+    calSize.cal_reference_size(reference_cnts)
+
+    cv2.imshow("Reference Object", img)
+
+    # All other contours, assumed to include the hand
+    # Identify hand and fingers, skipping the reference object
+    hand_cnts = cnts[1:]
+    finger_cnts, _ = contours.sort_contours(hand_cnts, method="top-to-bottom")
+
+    # Filter out any small or irrelevant contours
+    min_area = 1000  # Adjust based on expected finger contour size
+    finger_cnts = [c for c in finger_cnts if cv2.contourArea(c) > min_area]
+    #put number in sorted contours
+    # Draw contours and label them
+    for (i, c) in enumerate(finger_cnts, start=0):
+        # Compute the center of the contour and draw it
         M = cv2.moments(c)
         if M["m00"] != 0:  # Avoid division by zero
+            cX = int(M["m10"] / M["m00"])
+            cY = int(M["m01"] / M["m00"])
             calSize.cal_finger_size(c)  # Calculate size if needed
+            
+            # Draw the contour and label it
+            #cv2.drawContours(img_with_ref_obj, [c], -1, (0, 255, 0), 2)
+            #cv2.putText(img_with_ref_obj, f"{i + 1}", (cX - 10, cY - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
     # Show the final image with contours and labels
-    cv2.imshow("Background Removed and Finger Tracking", noBG)
+    cv2.imshow(f"Calculated Size for " + output_filename, img)
+    
     cv2.waitKey(0)
     cv2.destroyAllWindows()
-
-os.remove(output_filename)
+    os.remove(output_filename)
