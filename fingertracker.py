@@ -22,10 +22,13 @@ class HandImageProcessor:
         return midpoint, distance
 
     def process_hand_image(self, image):
-        """Process the hand image passed as an object."""
+        # Process the hand image passed as an object.
         
-        #image = cv2.flip(image,1)
+        image = cv2.flip(image, 1)
         h, w, c = image.shape  # Get the height, width, and number of channels of the image
+
+        # Create a blank mask with the same dimensions as the image
+        mask = np.zeros((h, w, 3), dtype=np.uint8)
 
         # Convert the image to RGB for Mediapipe processing
         img_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -37,13 +40,12 @@ class HandImageProcessor:
                 
                 hand_label = handType.classification[0].label  # Get hand type (Left or Right)
                 
-                print(hand_label)
-                
-                #if hand_label == 'Left':
-                #    pass
-                #elif hand_label == 'Right':
-                #   image = cv2.flip(image, 1)
-                
+                # Define offset adjustments based on handedness
+                if hand_label == 'Left':
+                    adjustments = [-20, 20, 25, 0]  # Adjustments for left hand
+                elif hand_label == 'Right':
+                    adjustments = [20, 20, -25, 0]  # Adjustments for right hand
+
                 mylmList = []
 
                 # Extract landmark points and store them in lists
@@ -61,32 +63,56 @@ class HandImageProcessor:
                 }
 
                 midpoints = []  # List to store midpoints
+                pip_points = []
 
-                #left_handed = [20,20,25,0]
-                #right_handed = []
                 # Process each finger
-                for finger_name, (mcp, pip) in finger_joints.items():
+                for i, (finger_name, (mcp, pip)) in enumerate(finger_joints.items()):
                     # Calculate midpoint and distance between MCP and PIP
                     midpoint, distance = self.calculate_midpoint_and_distance(mcp[0], mcp[1], pip[0], pip[1])
 
-                   
-                    # Adjust the midpoints for the thumb and pinky
+                    # Adjust midpoints based on handedness
                     if finger_name == "Thumb":
-                        midpoint = (midpoint[0] - 20, midpoint[1] + 20)  # Adjust left
+                        midpoint = (midpoint[0] + adjustments[0], midpoint[1] + adjustments[1])  # Adjust left or right
                     elif finger_name == "Pinky":
-                        midpoint = (midpoint[0] + 25, midpoint[1])  # Adjust right
-              
-                        
+                        midpoint = (midpoint[0] + adjustments[2], midpoint[1] + adjustments[3])  # Adjust left or right
+
                     # Store the adjusted midpoint for drawing lines later
                     midpoints.append(midpoint)
+                    
+                    # Adjust pip_points based on handedness
+                    if finger_name == "Thumb":
+                        pip = (pip[0] + adjustments[0], pip[1] + adjustments[1])  # Adjust left or right
+                    elif finger_name == "Pinky":
+                        pip = (pip[0] + adjustments[2], pip[1] + adjustments[3])  # Adjust left or right
+                        
+                    # Store the PIP points for drawing lines later
+                    pip_points.append(pip)
 
-                # Draw lines connecting all midpoints without gaps
-                for i in range(len(midpoints) - 1):
-                    start_point = midpoints[i]
-                    end_point = midpoints[i + 1]
-                    cv2.line(image, start_point, end_point, (0, 0, 0), 3)  # Black line connecting midpoints
+                # Create a list of points for filling
+                fill_points = []
 
-        return image
+                # Combine midpoints and pip points for filling
+                for i in range(len(midpoints)):
+                    fill_points.append(midpoints[i])
+                for i in range(len(pip_points) - 1, -1, -1):  # Reverse order for the bottom line
+                    fill_points.append(pip_points[i])
+
+                # Convert to numpy array for fillPoly
+                fill_points = np.array(fill_points, np .int32)
+
+                # Fill the polygon area
+                cv2.fillPoly(mask, [fill_points], (255, 255, 255))  # Fill with white color
+                
+                
+        
+        # Apply the mask to the original image
+        result = cv2.bitwise_and(image, mask)
+        
+        # Flip the mask along the vertical axis
+        result = cv2.flip(result, 1)
+
+        return result
+
 
 
 """

@@ -1,25 +1,27 @@
-from scipy.spatial import distance as dist
-from imutils import perspective
 from imutils import contours
-import numpy as np
 import argparse
 import imutils
 import cv2
-from PIL import Image
 from bgremover import BackgroundRemover
 from fingertracker import HandImageProcessor
 from calsize import BoundingBoxAnalyzer
 import os
+from PIL import Image
 
 # Global variable for pixels per metric
 pixelsPerMetric = None
 
 def removeBG(image, filepath):
-    remover = BackgroundRemover(image)
+    input_image = Image.open(image)
+    remover = BackgroundRemover(input_image=input_image)
     
     try:
         # Process the image and get the result as a PIL Image
         output_image = remover.process_image()
+        
+        if output_image is None:
+            print("Error: Background removal failed, output_image is None.")
+            return None
         
         # Check if the image has an alpha channel (RGBA)
         if output_image.mode == 'RGBA':
@@ -84,17 +86,22 @@ if reference_cnts:
     reference_cnt = reference_cnts[0]  # Reference object
     calSize.cal_reference_size(reference_cnt)
     cv2.imshow('orig image', orig_image)
-    cv2.waitKey(0)
+    #cv2.waitKey(0)
 
 # Load the background-removed image
 output_filename = os.path.splitext(args['image'])[0] + 'BG.jpg'
 noBG = removeBG(args["image"], output_filename)
-noBG = trackFinger(noBG)
+
+if noBG is not None:
+    noBG = trackFinger(noBG)
+else:
+    print("Error: No background-removed image to process.")
+    exit()
 
 # Process the background-removed image
 finger_cnts = process_image(noBG)
 if finger_cnts:
-    hand_cnts = finger_cnts[1:]  # Skip the first contour if it's the reference object
+    hand_cnts = finger_cnts[:5]  # Skip the first contour if it's the reference object
     hand_cnts, _ = contours.sort_contours(hand_cnts, method="top-to-bottom")
 
     # Filter small contours
@@ -109,6 +116,7 @@ if finger_cnts:
 
     # Show the final image with contours and labels
     cv2.imshow("Background Removed and Finger Tracking", noBG)
+    cv2.imshow("Calculated Size", orig_image)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 

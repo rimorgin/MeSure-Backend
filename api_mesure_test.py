@@ -1,4 +1,4 @@
-api_mesure_test
+"""api_mesure_test"""
 
 from flask import Flask, request, jsonify, send_file
 from scipy.spatial import distance as dist
@@ -121,7 +121,7 @@ def process_image(image_path, ref_width):
 
     return processed_image_path
 
-@app.route('/measure_finger', methods=['POST'])
+@app.route('/measure', methods=['POST'])
 def measure_finger():
     """Endpoint to measure finger dimensions in uploaded image."""
     if 'image' not in request.files:
@@ -147,5 +147,5 @@ def measure_finger():
     os.remove(processed_image_path)
     return response
 
-if _name_ == '_main_':
+if __name__ == '_main_':
     app.run(debug=True)
