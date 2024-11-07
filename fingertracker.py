@@ -34,6 +34,8 @@ class HandImageProcessor:
         img_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         results = self.hands.process(img_rgb)
 
+        hand_label = None  # Initialize hand_label
+        
         # Process each detected hand in the image
         if results.multi_hand_landmarks:
             for handType, handLms in zip(results.multi_handedness, results.multi_hand_landmarks):
@@ -111,7 +113,7 @@ class HandImageProcessor:
         # Flip the mask along the vertical axis
         result = cv2.flip(result, 1)
 
-        return result
+        return result, hand_label
 
 
 

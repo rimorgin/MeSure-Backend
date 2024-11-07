@@ -7,13 +7,15 @@ from fingertracker import HandImageProcessor
 from calsize import BoundingBoxAnalyzer
 import os
 from PIL import Image
+import numpy as np
+
 
 # Global variable for pixels per metric
 pixelsPerMetric = None
 
 def removeBG(image, filepath):
     input_image = Image.open(image)
-    remover = BackgroundRemover(input_image=input_image)
+    remover = BackgroundRemover(input_image)
     
     try:
         # Process the image and get the result as a PIL Image
@@ -30,14 +32,10 @@ def removeBG(image, filepath):
         # Save the output image using OpenCV
         output_image.save(filepath)
 
-        # Load the image in OpenCV
-        removedBG = cv2.imread(filepath)
+        # Convert the PIL image to a NumPy array
+        output_image = np.array(output_image)  # Convert to NumPy array
 
-        # Check if the image was loaded correctly
-        if removedBG is not None:
-            return removedBG  # Return the loaded image
-        else:
-            print("Error: Could not load the image for display.")
+        return output_image  # Return the NumPy array
 
     except Exception as e:
         print(e)
@@ -45,10 +43,8 @@ def removeBG(image, filepath):
 # Function to track fingers for isolation
 def trackFinger(image):
     processor = HandImageProcessor()
-    processed_image = processor.process_hand_image(image)  # Ensure this returns a NumPy array
+    processed_image, _ = processor.process_hand_image(image)  # Ensure this returns a NumPy array
     return processed_image  # Return the processed image directly
-    
-# ... [initial imports and global variables remain unchanged]
 
 def process_image(image):
     # Convert the image to grayscale and blur it slightly
@@ -63,6 +59,11 @@ def process_image(image):
     # Find contours
     cnts = cv2.findContours(edged.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     cnts = imutils.grab_contours(cnts)
+
+    # Check if any contours were found
+    if not cnts:
+        print("No contours found.")
+        return []  # Return an empty list if no contours are found
 
     # Sort contours from top to bottom
     cnts, _ = contours.sort_contours(cnts, method='top-to-bottom')
@@ -86,14 +87,17 @@ if reference_cnts:
     reference_cnt = reference_cnts[0]  # Reference object
     calSize.cal_reference_size(reference_cnt)
     cv2.imshow('orig image', orig_image)
-    #cv2.waitKey(0)
+    cv2.waitKey(0)
 
 # Load the background-removed image
 output_filename = os.path.splitext(args['image'])[0] + 'BG.jpg'
 noBG = removeBG(args["image"], output_filename)
 
 if noBG is not None:
+    cv2.imshow('noBG', noBG)
     noBG = trackFinger(noBG)
+    cv2.imshow('figner', noBG)
+    cv2.waitKey(0)
 else:
     print("Error: No background-removed image to process.")
     exit()
