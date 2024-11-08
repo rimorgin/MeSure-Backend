@@ -6,7 +6,7 @@ import argparse
 import imutils
 import cv2
 from bgremover import BackgroundRemover
-from fingertracker import HandImageProcessor
+from handtracker import HandImageProcessor
 from addreference import ImageOverlay
 from sizecalculator import BoundingBoxAnalyzer
 import os

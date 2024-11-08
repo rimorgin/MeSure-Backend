@@ -7,7 +7,7 @@ import imutils
 import cv2
 from PIL import Image
 from bgremover import BackgroundRemover
-from fingertracker import HandImageProcessor
+from handtracker import HandImageProcessor
 from calsize import BoundingBoxAnalyzer
 import os
 

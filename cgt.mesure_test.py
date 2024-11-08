@@ -3,7 +3,7 @@ import argparse
 import imutils
 import cv2
 from bgremover import BackgroundRemover
-from fingertracker import HandImageProcessor
+from handtracker import HandImageProcessor
 from calsize import BoundingBoxAnalyzer
 import os
 from PIL import Image

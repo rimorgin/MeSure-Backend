@@ -5,7 +5,7 @@ import os
 import numpy as np
 from flask import Flask, request, jsonify, send_file
 from bgremover import BackgroundRemover
-from fingertracker import HandImageProcessor
+from handtracker import HandImageProcessor
 from calsize import BoundingBoxAnalyzer
 from io import BytesIO
 from PIL import Image
@@ -30,7 +30,12 @@ def removeBG(image, filepath):
 
 def trackFinger(image):
     processor = HandImageProcessor()
-    processed_image, hand_label = processor.process_hand_image(image)
+    processed_image, hand_label = processor.finger_tracking(image)
+    return processed_image, hand_label
+
+def trackWrist(image):
+    processor = HandImageProcessor()
+    processed_image, hand_label = processor.wrist_tracking(image)
     return processed_image, hand_label
 
 def process_image_cnts(image, method):
@@ -119,33 +124,6 @@ def measure():
 
 
 @app.route('/measure-wrist', methods=['POST'])
-def measure_wrist_width(image, reference_width):
-    # Process image for contours
-    reference_cnts = process_image_cnts(image, 'top-to-bottom')
-    if not reference_cnts:
-        print("No contours found in the image")
-        return None
-
-    # Assume the first contour found is the reference object
-    reference_cnt = reference_cnts[0]
-    
-    # Initialize BoundingBoxAnalyzer with reference size
-    calSize = BoundingBoxAnalyzer(image, reference_width)
-    calSize.cal_reference_size(reference_cnt)
-
-    # Find wrist contours (assuming wrist is largest contour below reference)
-    wrist_cnts = process_image_cnts(image, 'top-to-bottom')
-    if not wrist_cnts:
-        print("No wrist contour found")
-        return None
-
-    # Assume the largest contour in the lower part of the image is the wrist
-    wrist_cnt = max(wrist_cnts, key=cv2.contourArea)
-
-    # Calculate wrist width
-    wrist_width = calSize.cal_object_width(wrist_cnt)
-    return wrist_width
-
 def measure_wrist():
     if 'image' not in request.files or 'width' not in request.form:
         return jsonify({"error": "No image file or reference width provided"}), 400
@@ -164,13 +142,45 @@ def measure_wrist():
     if orig_image is None:
         return jsonify({"error": "Invalid image file"}), 400
 
-    # Measure wrist width
-    wrist_width = measure_wrist_width(orig_image, reference_width)
-    if wrist_width is None:
-        return jsonify({"error": "Failed to measure wrist width"}), 500
+   # Process the original image to find reference object contours
+    reference_cnts = process_image_cnts(orig_image, 'top-to-bottom')
+    if not reference_cnts:
+        return jsonify({"error": "No contours found in the image"}), 400
 
-    return jsonify({"wrist_width": wrist_width}), 200
+    calSize = BoundingBoxAnalyzer(orig_image, reference_width)
+    reference_cnt = reference_cnts[0]
+    calSize.cal_reference_size(reference_cnt)
 
+     # Load the background-removed image
+    output_filename = "temp_BG_removed.jpg"
+    noBG = removeBG(orig_image, output_filename)
+    if noBG is None:
+        return jsonify({"error": "Failed to remove background"}), 500
+
+    noBG, hand_label = trackWrist(noBG)
+    
+    # Process the background-removed image to find wrist contours
+    wrist_cnt = process_image_cnts(noBG,'bottom-to-top')
+    if not wrist_cnt:
+        return jsonify({"error": "No wrist contour found"}), 400
+    
+    # get the largest contour in the image which is wrist
+    c = max(wrist_cnt, key=cv2.contourArea)
+    
+    calSize.cal_wrist_size(c)
+
+    processed_image = Image.fromarray(cv2.cvtColor(orig_image, cv2.COLOR_BGR2RGB))
+    
+    
+    img_io = BytesIO()
+    processed_image.save(img_io, format='JPEG')
+    img_io.seek(0)
+    
+    os.remove(output_filename)
+
+    #
+    #return jsonify({"finger_measurements": finger_measurements})
+    return send_file(img_io, mimetype='image/jpeg')
 
     
 if __name__ == '__main__':

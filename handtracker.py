@@ -21,7 +21,7 @@ class HandImageProcessor:
         distance = HandImageProcessor.calculate_distance(x1, y1, x2, y2)
         return midpoint, distance
 
-    def process_hand_image(self, image):
+    def finger_tracking(self, image):
         # Process the hand image passed as an object.
         
         image = cv2.flip(image, 1)
@@ -113,6 +113,83 @@ class HandImageProcessor:
         # Flip the mask along the vertical axis
         result = cv2.flip(result, 1)
 
+        return result, hand_label
+    
+    def wrist_tracking(self, image):
+        # Process the hand image passed as an object.
+        
+        image = cv2.flip(image, 1)
+        h, w, c = image.shape  # Get the height, width, and number of channels of the image
+
+        # Create a blank mask with the same dimensions as the image
+        mask = np.zeros((h, w, 3), dtype=np.uint8)
+
+        # Convert the image to RGB for Mediapipe processing
+        img_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        results = self.hands.process(img_rgb)
+
+        hand_label = None  # Initialize hand_label
+        
+        # Process each detected hand in the image
+        if results.multi_hand_landmarks:
+            for handType, handLms in zip(results.multi_handedness, results.multi_hand_landmarks):
+                
+                hand_label = handType.classification[0].label  # Get hand type (Left or Right)
+
+                print(hand_label)
+
+                 # Get the wrist joint coordinates directly
+                wrist_x = int(handLms.landmark[0].x * w)
+                wrist_y = int(handLms.landmark[0].y * h)
+                 # Coordinates for the wrist joint
+                
+                
+                # Adjust wrist joint based on handedness
+                if hand_label == 'Left':
+                    # Define points for left handedness
+                    wrist_points = [
+                        (wrist_x + 50, wrist_y),
+                        (wrist_x + 50, wrist_y + 150),
+                        (wrist_x + 50, wrist_y - 150),
+                        (wrist_x + 125, wrist_y),
+                        (wrist_x + 125, wrist_y + 150),
+                        (wrist_x + 125, wrist_y - 150)
+                    ]
+                elif hand_label == 'Right':
+                    # Define points for Right handedness
+                    wrist_points = [
+                        (wrist_x - 50, wrist_y),
+                        (wrist_x - 50, wrist_y + 150),
+                        (wrist_x - 50, wrist_y - 150),
+                        (wrist_x - 125, wrist_y),
+                        (wrist_x - 125, wrist_y + 150),
+                        (wrist_x - 125, wrist_y - 150)
+                    ]
+
+                # Draw lines connecting the wrist points
+                cv2.line(image, wrist_points[0], wrist_points[1], (0, 0, 0), 2)  # 1st vertical line
+                cv2.line(image, wrist_points[0], wrist_points[2], (0, 0, 0), 2)  # Extend 1st line up
+                cv2.line(image, wrist_points[3], wrist_points[4], (0, 0, 0), 2)  # 2nd vertical line
+                cv2.line(image, wrist_points[3], wrist_points[5], (0, 0, 0), 2)  # Extend 2nd line up
+
+                # Define polygon points to fill the area between the lines
+                polygon_points = np.array([
+                    wrist_points[0], wrist_points[1], wrist_points[4], wrist_points[3],
+                    wrist_points[5], wrist_points[2]
+                ])
+                
+                # Fill the polygon on the mask
+                cv2.fillPoly(mask, [polygon_points], (255, 255, 255))  # Fill with white color
+                
+
+        # Apply the mask to the original image
+        result = cv2.bitwise_and(image, mask)
+        
+        # Flip the mask along the vertical axis
+        result = cv2.flip(result, 1)
+
+        #return result, hand_label
+        
         return result, hand_label
 
 
