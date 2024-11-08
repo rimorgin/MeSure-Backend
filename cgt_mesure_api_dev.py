@@ -187,6 +187,9 @@ def measure_wrist():
 def index():
     return ({"msg":"MeSure API connected"})
 
+@app.route("/healthz")
+def health_check():
+    return jsonify({"status": "ok"}), 200
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
