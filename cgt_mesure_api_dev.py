@@ -188,5 +188,6 @@ def index():
     return ({"msg":"MeSure API connected"})
 
 
-if __name__ == '__main__':
-    app.run()
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
