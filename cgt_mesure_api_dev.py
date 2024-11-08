@@ -187,7 +187,7 @@ def measure_wrist():
 def index():
     return ({"msg":"MeSure API connected"})
 
-@app.route("/healthz")
+@app.route("/healthz", methods=['GET'])
 def health_check():
     return jsonify({"status": "ok"}), 200
 
