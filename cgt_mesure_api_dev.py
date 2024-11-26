@@ -3,12 +3,13 @@ import imutils
 import cv2
 import os
 import numpy as np
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file, make_response
 from bgremover import BackgroundRemover
 from handtracker import HandImageProcessor
 from calsize import BoundingBoxAnalyzer
 from io import BytesIO
 from PIL import Image
+import base64
 
 app = Flask(__name__)
 def detect_objects_on_white(image):
@@ -162,11 +163,23 @@ def measure():
     processed_image = cv2.cvtColor(restored_image, cv2.COLOR_BGR2RGB)
     processed_image = Image.fromarray(processed_image)
     
+    #processed_image.save('temporary.jpg', format='JPEG')
+    
     img_io = BytesIO()
     processed_image.save(img_io, format='JPEG')
     img_io.seek(0)
+    
+    img_base64 = base64.b64encode(img_io.getvalue()).decode('utf-8')
+    
+    os.remove(output_filename)
 
-    return send_file(img_io, mimetype='image/jpeg')
+    response = {
+        "hand_label": hand_label,
+        "finger_measurement": finger_measurements,
+        "processed_image": img_base64
+    }
+
+    return jsonify(response)
 
 
 @app.route('/measure-wrist', methods=['POST'])
@@ -216,9 +229,11 @@ def measure_wrist():
     if not wrist_cnt:
         return jsonify({"error": "No wrist contour found"}), 400
     
+    wrist_measurement=[]
     # Get the largest contour in the image, which is the wrist
     c = max(wrist_cnt, key=cv2.contourArea)
-    calSize.cal_wrist_size(c)
+    wrist_data = calSize.cal_wrist_size(c)
+    wrist_measurement.append(wrist_data)
 
     # Restore original image size after processing
     restored_image = cv2.resize(scaled_image, (original_width, original_height), interpolation=cv2.INTER_LINEAR)
@@ -230,10 +245,18 @@ def measure_wrist():
     img_io = BytesIO()
     processed_image.save(img_io, format='JPEG')
     img_io.seek(0)
+    
+    img_base64 = base64.b64encode(img_io.getvalue()).decode('utf-8')
 
     os.remove(output_filename)
 
-    return send_file(img_io, mimetype='image/jpeg')
+    response = {
+        "hand_label": hand_label,
+        "finger_measurement": wrist_measurement,
+        "processed_image": img_base64
+    }
+
+    return jsonify(response)
     
 @app.route("/", methods=['GET'])
 def index():
