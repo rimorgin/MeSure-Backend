@@ -1,3 +1,4 @@
+from itertools import chain
 from imutils import contours
 import imutils
 import cv2
@@ -234,6 +235,14 @@ def measure_wrist():
     c = max(wrist_cnt, key=cv2.contourArea)
     wrist_data = calSize.cal_wrist_size(c)
     wrist_measurement.append(wrist_data)
+    
+    # Determine largest wrist measurement based on number of sublists
+    if len(wrist_measurement) == 1:
+        wrist_measurement = max(wrist_measurement[0])
+    else:
+        wrist_measurement = max(chain.from_iterable(wrist_measurement))
+
+    
 
     # Restore original image size after processing
     restored_image = cv2.resize(scaled_image, (original_width, original_height), interpolation=cv2.INTER_LINEAR)
@@ -249,14 +258,15 @@ def measure_wrist():
     img_base64 = base64.b64encode(img_io.getvalue()).decode('utf-8')
 
     os.remove(output_filename)
-
+    
     response = {
         "hand_label": hand_label,
         "wrist_measurement": wrist_measurement,
-        "processed_image": img_base64
+       "processed_image": img_base64
     }
 
     return jsonify(response)
+    #return send_file(img_io, mimetype='image/jpeg')
     
 @app.route("/", methods=['GET'])
 def index():

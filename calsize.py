@@ -151,12 +151,12 @@ class BoundingBoxAnalyzer:
         # Draw the midpoints on the image
         cv2.circle(self.img_with_ref_obj, (int(tltrX), int(tltrY)), 5, (255, 0, 0), -1)
         cv2.circle(self.img_with_ref_obj, (int(blbrX), int(blbrY)), 5, (255, 0, 0), -1)
-        cv2.circle(self.img_with_ref_obj, (int(tlblX), int(tlblY)), 5, (255, 0, 0), -1)
-        cv2.circle(self.img_with_ref_obj, (int(trbrX), int(trbrY)), 5, (255, 0, 0), -1)
+        #cv2.circle(self.img_with_ref_obj, (int(tlblX), int(tlblY)), 5, (255, 0, 0), -1)
+        #cv2.circle(self.img_with_ref_obj, (int(trbrX), int(trbrY)), 5, (255, 0, 0), -1)
 
         # Draw lines between the midpoints
         cv2.line(self.img_with_ref_obj, (int(tltrX), int(tltrY)), (int(blbrX), int(blbrY)), (255, 0, 255), 2)
-        cv2.line(self.img_with_ref_obj, (int(tlblX), int(tlblY)), (int(trbrX), int(trbrY)), (255, 0, 255), 2)
+        #cv2.line(self.img_with_ref_obj, (int(tlblX), int(tlblY)), (int(trbrX), int(trbrY)), (255, 0, 255), 2)
 
         # Compute the Euclidean distances between the midpoints
         dA = dist.euclidean((tltrX, tltrY), (blbrX, blbrY))  # Height
@@ -174,9 +174,9 @@ class BoundingBoxAnalyzer:
         cv2.putText(self.img_with_ref_obj, "{:.1f}".format(dimA),
                     (int(tltrX - 15), int(tltrY - 10)), cv2.FONT_HERSHEY_SIMPLEX,
                     0.65, (255, 255, 255), 2)
-        cv2.putText(self.img_with_ref_obj, "{:.1f}".format(dimB),
-                    (int(trbrX + 10), int(trbrY)), cv2.FONT_HERSHEY_SIMPLEX,
-                    0.65, (255, 255, 255), 2)
+        #cv2.putText(self.img_with_ref_obj, "{:.1f}".format(dimB),
+        #            (int(trbrX + 10), int(trbrY)), cv2.FONT_HERSHEY_SIMPLEX,
+        #            0.65, (255, 255, 255), 2)
 
         return dimA, dimB  # Return the wrist dimensions as a tuple
 
