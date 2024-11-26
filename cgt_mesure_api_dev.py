@@ -252,7 +252,7 @@ def measure_wrist():
 
     response = {
         "hand_label": hand_label,
-        "finger_measurement": wrist_measurement,
+        "wrist_measurement": wrist_measurement,
         "processed_image": img_base64
     }
 
