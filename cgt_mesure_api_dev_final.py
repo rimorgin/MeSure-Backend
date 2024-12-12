@@ -6,7 +6,7 @@ import os
 import numpy as np
 from flask import Flask, request, jsonify, send_file, make_response
 from bgremover import BackgroundRemover
-from handtracker import HandImageProcessor
+from handtracker_final import HandImageProcessor
 from calsize import BoundingBoxAnalyzer
 from io import BytesIO
 from PIL import Image
@@ -58,7 +58,7 @@ def trackWrist(image):
     processed_image, hand_label = processor.wrist_tracking(image)
     return processed_image, hand_label
 
-def scale_down_image(image, max_width=800, max_height=600):
+def scale_down_image(image, max_width=700, max_height=700):
     # Get original dimensions
     original_height, original_width = image.shape[:2]
     
@@ -85,7 +85,6 @@ def process_image_cnts(image, method):
     edged = cv2.Canny(gray, threshold1=50, threshold2=100)
     edged = cv2.dilate(edged, None, iterations=1)
     edged = cv2.erode(edged, None, iterations=1)
-    #cv2.imwrite('edged.jpg', edged)
     cnts = cv2.findContours(edged.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     cnts = imutils.grab_contours(cnts)
     
@@ -98,13 +97,13 @@ def process_image_cnts(image, method):
     return cnts
 
 @app.route('/measure-fingers', methods=['POST'])
-def measure():
+def measure_fingers():
     if 'image' not in request.files or 'width' not in request.form:
         return jsonify({"error": "No image file or width provided"}), 400
 
     file = request.files['image']
     reference_width = float(request.form['width'])
-    
+
     file_size = round(len(file.read()) / 1024, 1)  # size in KB
     if file_size == 0:
         return jsonify({"error": "Uploaded image is empty (0 bytes)"}), 400
@@ -116,73 +115,93 @@ def measure():
     orig_image = cv2.imdecode(np.frombuffer(file.read(), np.uint8), cv2.IMREAD_COLOR)
     if orig_image is None:
         return jsonify({"error": "Invalid image file"}), 400
-    
-    
+
     # Save original dimensions for later resizing
     original_height, original_width = orig_image.shape[:2]
 
+    # Initialize a list to store measurements across iterations
+    all_finger_measurements = []
+
     # Scale down image for faster processing
     scaled_image = scale_down_image(orig_image)
+    
+    # Load the background-removed image
+    output_filename = "temp_BG_removed.jpg"
+    
+    noBG = removeBG(scaled_image, output_filename)
+    if noBG is None:
+        raise ValueError("Failed to remove background")
+    noBG, hand_label = trackFinger(noBG)
+
 
     # Process the scaled-down image to find reference object contours
     reference_cnts = process_image_cnts(scaled_image, 'top-to-bottom')
     if not reference_cnts:
-        return jsonify({"error": "No contours found in the image"}), 400
-
+        raise ValueError("No contours found in the reference area"
+                         )
     calSize = BoundingBoxAnalyzer(scaled_image, reference_width)
     reference_cnt = reference_cnts[0]
-    calSize.cal_reference_size(reference_cnt)
     
-    cv2.imwrite('reference.jpg', scaled_image)
+    successful_iterations = 0
 
-    # Load the background-removed image
-    output_filename = "temp_BG_removed.jpg"
-    noBG = removeBG(scaled_image, output_filename)
-    if noBG is None:
-        return jsonify({"error": "Failed to remove background"}), 500
+    for _ in range(20):  # Perform 3 iterations
+        try:            
+            calSize.cal_reference_size(reference_cnt)
+        
+            # Process the background-removed image to find finger contours
+            finger_cnts = process_image_cnts(noBG, 'left-to-right')
+            if not finger_cnts:
+                raise ValueError("No finger contours found")
 
-    noBG, hand_label = trackFinger(noBG)
+            min_area = 1000
+            finger_cnts = [c for c in finger_cnts if cv2.contourArea(c) > min_area]
 
-    # Process the background-removed image to find finger contours
-    finger_cnts = process_image_cnts(noBG, 'left-to-right')
-    if not finger_cnts:
-        return jsonify({"error": "No finger contours found"}), 400
+            # Calculate measurements for this iteration
+            finger_measurements = []
+            for c in finger_cnts:
+                M = cv2.moments(c)
+                if M["m00"] != 0:
+                    finger_data = calSize.cal_finger_size(c)
+                    finger_measurements.append(finger_data)
 
-    min_area = 1000
-    finger_cnts = [c for c in finger_cnts if cv2.contourArea(c) > min_area]
+            # Add this iteration's measurements to the list
+            all_finger_measurements.append(finger_measurements)
+            #print(f"All finger measurements: {all_finger_measurements}")
+            successful_iterations += 1
 
-    finger_measurements = []
-    for (i, c) in enumerate(finger_cnts):
-        M = cv2.moments(c)
-        if M["m00"] != 0:
-            finger_data = calSize.cal_finger_size(c)
-            finger_measurements.append(finger_data)
+        except ValueError as e:
+            # Log the error and continue
+            print(f"Iteration failed: {e}")
 
-    # Restore original image size after processing
+    if successful_iterations == 0:
+        return jsonify({"error": "No successful measurements after 3 iterations"}), 400
+
+    # Compute the average measurements
+    if len(all_finger_measurements) > 0:
+        avg_measurements = np.mean(all_finger_measurements, axis=0).tolist()
+    else:
+        avg_measurements = []
+
+    # Convert the last processed image to PIL for sending back to the client
     restored_image = cv2.resize(scaled_image, (original_width, original_height), interpolation=cv2.INTER_LINEAR)
-
-    # Convert to PIL for sending back to the client
     processed_image = cv2.cvtColor(restored_image, cv2.COLOR_BGR2RGB)
     processed_image = Image.fromarray(processed_image)
-    
-    #processed_image.save('temporary.jpg', format='JPEG')
-    
+
     img_io = BytesIO()
     processed_image.save(img_io, format='JPEG')
     img_io.seek(0)
-    
+
     img_base64 = base64.b64encode(img_io.getvalue()).decode('utf-8')
-    
+
     os.remove(output_filename)
 
     response = {
         "hand_label": hand_label,
-        "finger_measurement": finger_measurements,
+        "finger_measurements": avg_measurements,
         "processed_image": img_base64
     }
 
     return jsonify(response)
-
 
 @app.route('/measure-wrist', methods=['POST'])
 def measure_wrist():
@@ -226,24 +245,37 @@ def measure_wrist():
 
     noBG, hand_label = trackWrist(noBG)
     
-    # Process the background-removed image to find wrist contours
-    wrist_cnt = process_image_cnts(noBG, 'bottom-to-top')
-    if not wrist_cnt:
-        return jsonify({"error": "No wrist contour found"}), 400
-    
-    wrist_measurement=[]
-    # Get the largest contour in the image, which is the wrist
-    c = max(wrist_cnt, key=cv2.contourArea)
-    wrist_data = calSize.cal_wrist_size(c)
-    wrist_measurement.append(wrist_data)
-    
-    # Determine largest wrist measurement based on number of sublists
-    if len(wrist_measurement) == 1:
-        wrist_measurement = max(wrist_measurement[0])
-    else:
-        wrist_measurement = max(chain.from_iterable(wrist_measurement))
+    # Initialize a list to store wrist measurements across iterations
+    all_wrist_measurements = []
 
-    
+    # Process the background-removed image to find wrist contours in multiple iterations
+    successful_iterations = 0
+    for _ in range(3):  # Perform 3 iterations
+        try:
+            # Process the background-removed image to find wrist contours
+            wrist_cnt = process_image_cnts(noBG, 'bottom-to-top')
+            if not wrist_cnt:
+                raise ValueError("No wrist contour found")
+
+            # Get the largest contour in the image, which is the wrist
+            c = max(wrist_cnt, key=cv2.contourArea)
+            wrist_data = calSize.cal_wrist_size(c)
+            all_wrist_measurements.append(wrist_data)
+            
+            successful_iterations += 1
+
+        except ValueError as e:
+            # Log the error and continue
+            print(f"Iteration failed: {e}")
+
+    if successful_iterations == 0:
+        return jsonify({"error": "No successful wrist measurements after 3 iterations"}), 400
+
+    # Compute the average wrist measurement
+    if len(all_wrist_measurements) > 0:
+        avg_wrist_measurement = np.mean(all_wrist_measurements, axis=0).tolist()
+    else:
+        avg_wrist_measurement = []
 
     # Restore original image size after processing
     restored_image = cv2.resize(scaled_image, (original_width, original_height), interpolation=cv2.INTER_LINEAR)
@@ -262,13 +294,12 @@ def measure_wrist():
     
     response = {
         "hand_label": hand_label,
-        "wrist_measurement": wrist_measurement,
-       "processed_image": img_base64
+        "average_wrist_measurement": avg_wrist_measurement,
+        "processed_image": img_base64
     }
 
     return jsonify(response)
-    #return send_file(img_io, mimetype='image/jpeg')
-    
+   
 @app.route("/", methods=['GET'])
 def index():
     return ({"msg":"Connected to internet and MeSure API"})
