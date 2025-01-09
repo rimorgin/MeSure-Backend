@@ -44,9 +44,9 @@ class HandImageProcessor:
                 
                 # Define offset adjustments based on handedness
                 if hand_label == 'Left':
-                    adjustments = [-20, 50, 25, 0, -30, 20, -30, 5]  # Adjustments for left hand
+                    adjustments = [-20, 20, 25, 0]  # Adjustments for left hand
                 elif hand_label == 'Right':
-                    adjustments = [20, 50, -25, 0]  # Adjustments for right hand
+                    adjustments = [20, 20, -25, 0]  # Adjustments for right hand
 
                 mylmList = []
 
@@ -70,17 +70,16 @@ class HandImageProcessor:
                 # Process each finger
                 for i, (finger_name, (mcp, pip)) in enumerate(finger_joints.items()):
                     # Calculate midpoint and distance between MCP and PIP
-                    midpoint, distance = self.calculate_midpoint_and_distance(mcp[0], mcp[1], pip[0], pip[1])
+                    midpoint0, _ = self.calculate_midpoint_and_distance(mcp[0], mcp[1], pip[0], pip[1])
+                                        
+                    # New midpoint between the first midpoint and PIP
+                    midpoint, _ = self.calculate_midpoint_and_distance(midpoint0[0], midpoint0[1], pip[0], pip[1])
 
                     # Adjust midpoints based on handedness
                     if finger_name == "Thumb":
                         midpoint = (midpoint[0] + adjustments[0], midpoint[1] + adjustments[1])  # Adjust left or right
                     elif finger_name == "Pinky":
                         midpoint = (midpoint[0] + adjustments[2], midpoint[1] + adjustments[3])  # Adjust left or right
-                    elif finger_name == "Index":
-                        midpoint = (midpoint[0] + adjustments[4], midpoint[1] + adjustments[5])  # Adjust left or right
-                    elif finger_name == "Middle":
-                        midpoint = (midpoint[0] + adjustments[6], midpoint[1] + adjustments[7])  # Adjust left or right
 
                     # Store the adjusted midpoint for drawing lines later
                     midpoints.append(midpoint)
