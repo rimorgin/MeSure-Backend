@@ -6,7 +6,7 @@ import os
 import numpy as np
 from flask import Flask, request, jsonify, send_file, make_response
 from bgremover import BackgroundRemover
-from handtracker_final import HandImageProcessor
+from handtracker import HandImageProcessor
 from calsize import BoundingBoxAnalyzer
 from io import BytesIO
 from PIL import Image
@@ -82,19 +82,41 @@ def process_image_cnts(image, method):
     # Convert to grayscale and apply Gaussian blur
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     gray = cv2.GaussianBlur(gray, (11, 11), 0)
+    
+    # Apply Canny edge detection
     edged = cv2.Canny(gray, threshold1=50, threshold2=100)
     edged = cv2.dilate(edged, None, iterations=1)
     edged = cv2.erode(edged, None, iterations=1)
+    
+    # Find contours
     cnts = cv2.findContours(edged.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     cnts = imutils.grab_contours(cnts)
     
-    # Check if any contours were found
+    cv2.imwrite('edged.png', edged)
+    
     if len(cnts) == 0:
         print("No contours found")
-        return []  # Return an empty list instead of proceeding
-    
+        return []  # Return an empty list if no contours are found
+
     cnts, _ = contours.sort_contours(cnts, method=method)
-    return cnts
+
+    # Approximate contours and apply convex hull
+    straightened_contours = []
+    epsilon_factor = 0.02  # Adjust this factor based on your image
+    min_area = 1000  # Minimum area threshold to filter small contours
+
+    for cnt in cnts:
+        if cv2.contourArea(cnt) > min_area:
+            # Approximate the contour to reduce arcs
+            epsilon = epsilon_factor * cv2.arcLength(cnt, True)
+            approx = cv2.approxPolyDP(cnt, epsilon, True)
+            
+            # Apply convex hull to further straighten
+            hull = cv2.convexHull(approx)
+            
+            straightened_contours.append(hull)
+
+    return straightened_contours
 
 @app.route('/measure-fingers', methods=['POST'])
 def measure_fingers():

@@ -21,7 +21,7 @@ class HandImageProcessor:
         distance = HandImageProcessor.calculate_distance(x1, y1, x2, y2)
         return midpoint, distance
 
-    def finger_tracking(self, image):
+    def finger_tracking(self, image, finger_name):
         # Process the hand image passed as an object.
         
         image = cv2.flip(image, 1)
@@ -57,12 +57,13 @@ class HandImageProcessor:
 
                 # Coordinates for each finger's MCP and PIP joints
                 finger_joints = {
-                    "Thumb": (mylmList[2][1:3], mylmList[3][1:3]),
+                    # "Thumb": (mylmList[2][1:3], mylmList[3][1:3]),
                     "Index": (mylmList[5][1:3], mylmList[6][1:3]),
                     "Middle": (mylmList[9][1:3], mylmList[10][1:3]),
                     "Ring": (mylmList[13][1:3], mylmList[14][1:3]),
                     "Pinky": (mylmList[17][1:3], mylmList[18][1:3])
                 }
+                
 
                 midpoints = []  # List to store midpoints
                 pip_points = []
@@ -70,10 +71,16 @@ class HandImageProcessor:
                 # Process each finger
                 for i, (finger_name, (mcp, pip)) in enumerate(finger_joints.items()):
                     # Calculate midpoint and distance between MCP and PIP
-                    midpoint, distance = self.calculate_midpoint_and_distance(mcp[0], mcp[1], pip[0], pip[1])
+                    midpoint, _ = self.calculate_midpoint_and_distance(mcp[0], mcp[1], pip[0], pip[1])
+                                        
+                    # New midpoint between the first midpoint and PIP
+                    #midpoint, _ = self.calculate_midpoint_and_distance(midpoint0[0], midpoint0[1], pip[0], pip[1])
+                    
+                    # New midpoint between the first midpoint and 2nd midpoint
+                    #midpoint, _ = self.calculate_midpoint_and_distance(midpoint0[0], midpoint0[1], midpoint1[0], midpoint1[1])
 
                     # Adjust midpoints based on handedness
-                    if finger_name == "Thumb":
+                    if finger_name == "Index": 
                         midpoint = (midpoint[0] + adjustments[0], midpoint[1] + adjustments[1])  # Adjust left or right
                     elif finger_name == "Pinky":
                         midpoint = (midpoint[0] + adjustments[2], midpoint[1] + adjustments[3])  # Adjust left or right
@@ -82,7 +89,7 @@ class HandImageProcessor:
                     midpoints.append(midpoint)
                     
                     # Adjust pip_points based on handedness
-                    if finger_name == "Thumb":
+                    if finger_name == "Index":
                         pip = (pip[0] + adjustments[0], pip[1] + adjustments[1])  # Adjust left or right
                     elif finger_name == "Pinky":
                         pip = (pip[0] + adjustments[2], pip[1] + adjustments[3])  # Adjust left or right
@@ -105,13 +112,14 @@ class HandImageProcessor:
                 # Fill the polygon area
                 cv2.fillPoly(mask, [fill_points], (255, 255, 255))  # Fill with white color
                 
-                
         
         # Apply the mask to the original image
         result = cv2.bitwise_and(image, mask)
         
         # Flip the mask along the vertical axis
         result = cv2.flip(result, 1)
+        
+        cv2.imwrite('finger_mask.png', result)
 
         return result, hand_label
     
