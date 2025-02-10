@@ -124,18 +124,32 @@ def measure_finger():
 
     files = request.files.getlist('image')  # Corrected field name
     width_str = request.form.get('width', '').strip()
-    finger_str = request.form.get('finger', '').strip()
+    finger_str = request.form.get('finger', '').strip().capitalize()
     
-    if len(files) is None or len(files) == 1:
+    # Define finger joint mappings
+    allowed_fingers = {
+        "Thumb",
+        "Index",
+        "Middle",
+        "Ring",
+        "Pinky",
+    }
+    
+    # Validate input
+    if len(files)is None or len(files) == 1:
         return jsonify({"error": "Total uploaded image should be 2"}), 400
     elif width_str == '':
         return jsonify({"error": "Reference width not provided"}), 400
+    elif not width_str.isdigit():
+        return jsonify({"error": "Invalid format and must be numeric"}), 400
     elif finger_str == '':
         return jsonify({"error": "Finger name not provided"}), 400
+    elif finger_str not in allowed_fingers:
+        return jsonify({"error": f"Invalid finger name not in {allowed_fingers}"}), 400
     
 
     reference_width = float(width_str)
-    finger_name = finger_str.capitalize()
+    finger_name = finger_str
     
     final_avg_measurement = []
     initial_avg_measurement = []
@@ -155,9 +169,8 @@ def measure_finger():
             break
             
         image = scale_image(image)
-        
+        # add image sharpening
         kernel = np.array([[-1, -1, -1],[-1, 8, -1],[-1, -1, 0]], np.float32) 
-
         image = cv2.filter2D(image, -1, kernel)
         
         # initialize bounding box analyzer
@@ -193,7 +206,7 @@ def measure_finger():
             
             if successful_iteration != 0:
                 if iteration_hand_label != hand_label:
-                    results.append({"error": f"Hand label mismatch on uploaded image {successful_iteration+1}"})
+                    results.append({"error": f"Hand label mismatch on uploaded image {successful_iteration+1}"}), 400
                     break
 
             show_images([finger_mask], filename=f'finger-{file.filename}')
@@ -224,7 +237,7 @@ def measure_finger():
                     # Add this iteration's measurements to the list
                     finger_measurement.append(finger_estimated_size)
                 except Exception as e:
-                    return results.append({"error": f"Iteration failed: {str(e)}"})
+                    return results.append({"error": f"Iteration failed: {str(e)}"}), 400
                 
             # Compute the average measurements
             if len(finger_measurement) > 0:
@@ -242,18 +255,22 @@ def measure_finger():
             successful_iteration += 1
             cv2.imwrite(f'processed/final-{file.filename}.png', image)
         except Exception as e:
-            results.append({"error": f"Failed to process image: {str(e)}"})
+            results.append({"error": f"Failed to process image: {str(e)}"}), 400
             break
         
     #results.append({"message": "Objects measured successfully", "initial_avg_measurements": initial_avg_measurement})
     if len(files) == successful_iteration and successful_iteration > 0:
         final_avg_measurement = np.mean(initial_avg_measurement, axis=0)
     
-        results.append({"message": "Objects measured successfully", "final_avg_measurements": final_avg_measurement})
+        results.append({"success": "Objects measured successfully", "final_avg_measurements": final_avg_measurement}), 200
 
-    
+    print(results)
     # Return results for all files
-    return jsonify(results), 200
+    if 'success' in results:
+        return jsonify(results), 200
+    else:
+        return jsonify(results), 400
+        
 
 @app.route("/healthz", methods=['GET'])
 def health_check():

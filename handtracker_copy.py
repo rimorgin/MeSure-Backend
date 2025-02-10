@@ -34,22 +34,6 @@ class HandImageProcessor:
         img_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         results = self.hands.process(img_rgb)
 
-        
-        # Define finger joint mappings
-        allowed_fingers = {
-            "Thumb",
-            "Index",
-            "Middle",
-            "Ring",
-            "Pinky",
-        }
-        
-        # Validate input
-        if finger_name not in allowed_fingers:
-            print(f"Invalid finger name: {finger_name}")
-            return image, None  # Return image and None values if invalid
-    
-        
         target_finger = finger_name
         
         # Process detected hands
