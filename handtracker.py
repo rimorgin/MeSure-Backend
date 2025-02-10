@@ -21,7 +21,7 @@ class HandImageProcessor:
         distance = HandImageProcessor.calculate_distance(x1, y1, x2, y2)
         return midpoint, distance
 
-    def finger_tracking(self, image, finger_name):
+    def finger_tracking(self, image):
         # Process the hand image passed as an object.
         
         image = cv2.flip(image, 1)
@@ -57,7 +57,7 @@ class HandImageProcessor:
 
                 # Coordinates for each finger's MCP and PIP joints
                 finger_joints = {
-                    # "Thumb": (mylmList[2][1:3], mylmList[3][1:3]),
+                    "Thumb": (mylmList[2][1:3], mylmList[3][1:3]),
                     "Index": (mylmList[5][1:3], mylmList[6][1:3]),
                     "Middle": (mylmList[9][1:3], mylmList[10][1:3]),
                     "Ring": (mylmList[13][1:3], mylmList[14][1:3]),

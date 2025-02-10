@@ -21,7 +21,7 @@ class HandImageProcessor:
         distance = HandImageProcessor.calculate_distance(x1, y1, x2, y2)
         return midpoint, distance
 
-    def finger_tracking(self, image, finger_name):
+    def finger_tracking(self, image, finger_name, filename):
         """Track the specific finger and return the midpoint and distance between MCP and PIP (or CMC and MCP for thumb)."""
         
         image = cv2.flip(image, 1)  # Flip the image for correct coordinates
@@ -34,48 +34,99 @@ class HandImageProcessor:
         img_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         results = self.hands.process(img_rgb)
 
+        
         # Define finger joint mappings
-        finger_joints = {
-            "Thumb": [1, 2],  # CMC to MCP
-            "Index": [5, 6],  # MCP to PIP
-            "Middle": [9, 10],  # MCP to PIP
-            "Ring": [13, 14],  # MCP to PIP
-            "Pinky": [17, 18]  # MCP to PIP
+        allowed_fingers = {
+            "Thumb",
+            "Index",
+            "Middle",
+            "Ring",
+            "Pinky",
         }
         
         # Validate input
-        if finger_name not in finger_joints:
+        if finger_name not in allowed_fingers:
             print(f"Invalid finger name: {finger_name}")
             return image, None  # Return image and None values if invalid
+    
         
-        midpoint = None
+        target_finger = finger_name
         
         # Process detected hands
         if results.multi_hand_landmarks:
             for handType, handLms in zip(results.multi_handedness, results.multi_hand_landmarks):
                 hand_label = handType.classification[0].label  
 
-                # Extract landmarks list and adjust for image size
-                mylmList = [[id, int(lm.x * w), int(lm.y * h)] for id, lm in enumerate(handLms.landmark)]
+                mylmList = []
+
+                # Extract landmark points and store them in lists
+                for id, lm in enumerate(handLms.landmark):
+                    px, py = int(lm.x * w), int(lm.y * h)
+                    mylmList.append([id, px, py])
+
+                # Coordinates for each finger's MCP and PIP joints
+                finger_joints = {
+                    "Thumb": (mylmList[2][1:3], mylmList[3][1:3]),
+                    "Index": (mylmList[5][1:3], mylmList[6][1:3]),
+                    "Middle": (mylmList[9][1:3], mylmList[10][1:3]),
+                    "Ring": (mylmList[13][1:3], mylmList[14][1:3]),
+                    "Pinky": (mylmList[17][1:3], mylmList[18][1:3])
+                }
+
+                # Dictionary defining adjacent fingers
+                adjacent_points = {
+                    "Thumb": ["Index"],
+                    "Index": ["Thumb", "Middle"],
+                    "Middle": ["Index", "Ring"],
+                    "Ring": ["Middle", "Pinky"],
+                    "Pinky": ["Ring"]
+                }
+                print('target finger is: ', target_finger)
+                # Get the fingers to process (target finger + its adjacent fingers)
+                fingers_to_process = [target_finger] + adjacent_points.get(target_finger, [])
+                filtered_finger_joints = {k: v for k, v in finger_joints.items() if k in fingers_to_process}
+
+                midpoints = []  # List to store midpoints
+                pip_points = []
+
+               # Iterate over the target fingers
+                for finger_name, (mcp, pip) in filtered_finger_joints.items():
+                    # Get adjacent fingers from the dictionary
+                    adjacent_fingers = adjacent_points.get(finger_name, [])
+
+                    for adjacent_finger in adjacent_fingers:
+                        # Check if the adjacent finger is in the filtered list
+                        if adjacent_finger in filtered_finger_joints:
+                            adj_mcp, adj_pip = filtered_finger_joints[adjacent_finger]
+                            
+                            target_midpoint, _ = self.calculate_midpoint_and_distance(mcp[0], mcp[1], pip[0], pip[1])
+                            adj_target_midpoint, _ = self.calculate_midpoint_and_distance(adj_mcp[0], adj_mcp[1], adj_pip[0], adj_pip[1])
+
+                            # Calculate midpoints between MCPs of target and adjacent finger
+                            mcp_midpoint, _ = self.calculate_midpoint_and_distance(target_midpoint[0], target_midpoint[1], adj_target_midpoint[0], adj_target_midpoint[1])
+
+                            # Calculate midpoints between PIPs of target and adjacent finger
+                            pip_midpoint, _ = self.calculate_midpoint_and_distance(pip[0], pip[1], adj_pip[0], adj_pip[1])
+
+                            # Store midpoints for further processing (drawing lines, filling polygons, etc.)
+                            midpoints.append(mcp_midpoint)
+                            pip_points.append(pip_midpoint)
+
+                    # Create a list of points for filling
+                    fill_points = midpoints + pip_points[::-1]  # Combine midpoints and reverse pip points
+
+                    # Convert to numpy array for fillPoly
+                    fill_points = np.array(fill_points, np.int32)
+
+                    # Fill the polygon area
+                    cv2.fillPoly(mask, [fill_points], (255, 255, 255))  # Fill with white color
                 
-                # Get the specific finger's keypoints for MCP and PIP (or CMC for Thumb)
-                mcp_x, mcp_y = mylmList[finger_joints[finger_name][0]][1:]  # MCP joint
-                pip_x, pip_y = mylmList[finger_joints[finger_name][1]][1:]  # PIP joint
-                
-                # Calculate the midpoint between the two joints
-                midpoint, distance = self.calculate_midpoint_and_distance(mcp_x, mcp_y, pip_x, pip_y)
-                '''
-                # Draw the joints and midpoint (for visualization purposes)
-                cv2.circle(mask, (mcp_x, mcp_y), 5, (255, 0, 0), -1)  # Red for MCP
-                cv2.circle(mask, (pip_x, pip_y), 5, (0, 255, 0), -1)  # Green for PIP
-                cv2.circle(mask, midpoint, 5, (0, 0, 255), -1)  # Blue for midpoint
-                '''
-                
-                cv2.line(mask, (midpoint[0], midpoint[1]), (pip_x, pip_y), (255, 255, 255), 150) 
 
         # Apply mask properly
         mask_gray = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
         result = cv2.bitwise_and(image, image, mask=mask_gray)
         result = cv2.flip(result, 1)
+        
+        cv2.imwrite(f'processed/mask-{filename}.png', result)
 
         return result, hand_label

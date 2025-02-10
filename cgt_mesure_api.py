@@ -18,9 +18,9 @@ import os
 
 app = Flask(__name__)
 
-def trackFinger(image, finger_name):
+def trackFinger(image, finger_name, filename='mask'):
     processor = HandImageProcessor()
-    processed_image, hand_label = processor.finger_tracking(image, finger_name=finger_name)
+    processed_image, hand_label = processor.finger_tracking(image, finger_name=finger_name, filename=filename)
     return processed_image, hand_label
 
 def trackWrist(image):
@@ -89,22 +89,27 @@ def process_image_cnts(image, method='top-to-bottom', show_image=False):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     blur = cv2.GaussianBlur(gray, (9, 9), 0)
 
-    edged = cv2.Canny(blur, 50, 100)
+
+    edged = cv2.Canny(image, 100, 200)
     edged = cv2.dilate(edged, None, iterations=1)
     edged = cv2.erode(edged, None, iterations=1)
 
-    if show_image: show_images([blur, edged])
-    
-    # Find contours
+    if show_image:
+        cv2.imshow('Blurred', blur)
+        cv2.imshow('Edged', edged)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+    # Step 4: Find contours
     cnts = cv2.findContours(edged.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     cnts = imutils.grab_contours(cnts)
 
-    # Sort contours based on the method
+    # Step 5: Sort contours based on the method (default: top-to-bottom)
     (cnts, _) = contours.sort_contours(cnts, method=method)
 
-    # Remove contours which are not large enough
+    # Step 6: Filter out small contours (area threshold > 100)
     cnts = [x for x in cnts if cv2.contourArea(x) > 100]
-    
+
     print(f"Found {len(cnts)} contours")
     
     return cnts
@@ -137,6 +142,7 @@ def measure_finger():
     results = []
 
     successful_iteration = 0
+    iteration_hand_label = ''
     
     
     # process each uploaded image
@@ -148,27 +154,24 @@ def measure_finger():
             results.append({"error": f"Invalid image file of unknown format on uploaded image {successful_iteration+1}"}), 400
             break
             
+        image = scale_image(image)
+        
+        kernel = np.array([[-1, -1, -1],[-1, 8, -1],[-1, -1, 0]], np.float32) 
+
+        image = cv2.filter2D(image, -1, kernel)
         
         # initialize bounding box analyzer
         calSize = BoundingBoxAnalyzer(image, reference_width)
         # Process the image
         try:
-            cnts = process_image_cnts(image, show_image=False)
+            cnts = process_image_cnts(image)
             
             # Check if contours were found, early exit if NONE
             if cnts is None:
                 jsonify({"error": f"Failed to process the {successful_iteration+1} image"}), 400
                 break
-
-            # Process the image to find reference object contours
-            reference_cnts = process_image_cnts(image, 'top-to-bottom')
-            if not reference_cnts:
-                jsonify({"error": f"No contours found in the reference area of {successful_iteration+1} image"}), 400
-                break
             
-            reference_cnt = reference_cnts[0]
-            
-            
+            reference_cnt = cnts[0]
             
             # Get the reference pixel size
             calSize.cal_reference_size(reference_cnt)
@@ -176,7 +179,7 @@ def measure_finger():
             cv2.imwrite(f'processed/reference-{file.filename}.png', image)
             
             # Load the background-removed image
-            output_filename = "temp_BG_removed.jpg"
+            output_filename = f"processed/{file.filename}-BG-removed.jpg"
             
             noBG = removeBG(image, output_filename)
             if noBG is None:
@@ -184,16 +187,23 @@ def measure_finger():
                 break
                 
             show_images([noBG], filename=f'noBG-{file.filename}')
-            finger_mask, hand_label = trackFinger(noBG, finger_name)
+
+            finger_mask, hand_label = trackFinger(noBG, finger_name, filename=file.filename)
+            iteration_hand_label = hand_label
             
+            if successful_iteration != 0:
+                if iteration_hand_label != hand_label:
+                    results.append({"error": f"Hand label mismatch on uploaded image {successful_iteration+1}"})
+                    break
+
             show_images([finger_mask], filename=f'finger-{file.filename}')
             
             # initialize finger measurements variable
             finger_measurement = []
             
              # Process the finger tracked image to find finger contours
-            finger_cnts = process_image_cnts(finger_mask)
-            if finger_cnts is None:
+            finger_cnts = process_image_cnts(finger_mask, show_image=True)
+            if len(finger_cnts) == 0:
                 results.append({"error": f"No contours found on the finger area {successful_iteration+1} image"}), 400
                 break
             
@@ -230,6 +240,7 @@ def measure_finger():
             initial_avg_measurement.append(avg)
             
             successful_iteration += 1
+            cv2.imwrite(f'processed/final-{file.filename}.png', image)
         except Exception as e:
             results.append({"error": f"Failed to process image: {str(e)}"})
             break
@@ -240,7 +251,7 @@ def measure_finger():
     
         results.append({"message": "Objects measured successfully", "final_avg_measurements": final_avg_measurement})
 
-
+    
     # Return results for all files
     return jsonify(results), 200
 
