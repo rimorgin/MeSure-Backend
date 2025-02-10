@@ -153,6 +153,7 @@ def measure_finger():
     
     final_avg_measurement = []
     initial_avg_measurement = []
+    #response or results
     results = []
 
     successful_iteration = 0
@@ -227,12 +228,9 @@ def measure_finger():
             for _ in range(20):  # Perform 20 iterations
                 try:
                     # Calculate measurements for this iteration
-                    finger_estimated_size = []
-                    for c in finger_cnts:
-                        M = cv2.moments(c)
-                        if M["m00"] != 0:
-                            finger_data = calSize.cal_finger_size(c)
-                            finger_estimated_size.append(finger_data)
+                    finger_estimated_size = [
+                        calSize.cal_finger_size(c) for c in finger_cnts if cv2.moments(c)["m00"] != 0
+                    ]
 
                     # Add this iteration's measurements to the list
                     finger_measurement.append(finger_estimated_size)
@@ -241,15 +239,11 @@ def measure_finger():
                 
             # Compute the average measurements
             if len(finger_measurement) > 0:
-                avg = np.mean(finger_measurement, axis=0)
-                avg = avg[0]
+                avg = np.mean(finger_measurement, axis=0)[0]
                 
             else:
                 avg = []
-            
-            
-            # results.append({"message": "Objects measured successfully", "avg_measurements": avg})
-            
+
             initial_avg_measurement.append(avg)
             
             successful_iteration += 1
