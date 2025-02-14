@@ -37,9 +37,9 @@ class HandImageProcessor:
                 
                 # Define offset adjustments based on handedness
                 if hand_label == 'Left':
-                    adjustments = [-20, 50, 25, 0, -30, 20, -30, 5]  # Adjustments for left hand
+                    adjustments = [-60, 50, 55, 0, -30, 20, -30, 5]  # Adjustments for left hand
                 elif hand_label == 'Right':
-                    adjustments = [20, 50, -25, 0, -30, 20, -30, 5]  # Adjustments for right hand
+                    adjustments = [50, 25, -55, 0, -30, 20, -30, 5]  # Adjustments for right hand
                 mylmList = []
                 # Extract landmark points and store them in lists
                 for id, lm in enumerate(handLms.landmark):
@@ -47,7 +47,7 @@ class HandImageProcessor:
                     mylmList.append([id, px, py])
                 # Coordinates for each finger's MCP and PIP joints
                 finger_joints = {
-                    "Thumb": (mylmList[2][1:3], mylmList[3][1:3]),
+                    "Thumb": (mylmList[2][1:3], mylmList[4][1:3]),
                     "Index": (mylmList[5][1:3], mylmList[7][1:3]),
                     "Middle": (mylmList[9][1:3], mylmList[11][1:3]),
                     "Ring": (mylmList[13][1:3], mylmList[15][1:3]),
@@ -58,16 +58,31 @@ class HandImageProcessor:
                 # Process each finger
                 for i, (finger_name, (mcp, pip)) in enumerate(finger_joints.items()):
                     # Calculate midpoint and distance between MCP and PIP
-                    midpoint, distance = self.calculate_midpoint_and_distance(mcp[0], mcp[1], pip[0], pip[1])
+                    print(len(mcp))
+
+                    # midpoint1, distance = self.calculate_midpoint_and_distance(mcp[0], mcp[1], pip[0], pip[1])
+                    # midpoint2, distance = self.calculate_midpoint_and_distance(mcp[0], mcp[1], midpoint1[0], midpoint1[1])
+                    # midpoint3, distance = self.calculate_midpoint_and_distance(midpoint2[0], midpoint2[1], pip[0], pip[1])
+                    # midpoint4, distance = self.calculate_midpoint_and_distance(midpoint3[0], midpoint3[1], pip[0], pip[1])
+                    # midpoint5, distance = self.calculate_midpoint_and_distance(midpoint4[0], midpoint4[1], pip[0], pip[1])
+                    # midpoint6, distance = self.calculate_midpoint_and_distance(midpoint5[0], midpoint5[1], midpoint1[0], midpoint1[1])
+                    # midpoint, distance = self.calculate_midpoint_and_distance(midpoint6[0], midpoint6[1], midpoint1[0], midpoint1[1])
+
+
+                    midpoint1, distance = self.calculate_midpoint_and_distance(mcp[0], mcp[1], pip[0], pip[1])
+                    midpoint2, distance = self.calculate_midpoint_and_distance(mcp[0], mcp[1], midpoint1[0], midpoint1[1])
+                    midpoint, distance = self.calculate_midpoint_and_distance(midpoint2[0], midpoint2[1], midpoint1[0], midpoint1[1])
+
+
                     # Adjust midpoints based on handedness
-                    if finger_name == "Thumb":
-                        midpoint = (midpoint[0] + adjustments[0], midpoint[1] + adjustments[1])  # Adjust left or right
-                    elif finger_name == "Pinky":
-                        midpoint = (midpoint[0] + adjustments[2], midpoint[1] + adjustments[3])  # Adjust left or right
-                    elif finger_name == "Index":
-                        midpoint = (midpoint[0] + adjustments[4], midpoint[1] + adjustments[5])  # Adjust left or right
-                    elif finger_name == "Middle":
-                        midpoint = (midpoint[0] + adjustments[6], midpoint[1] + adjustments[7])  # Adjust left or right
+                    # if finger_name == "Thumb":
+                    #     midpoint = (midpoint[0] + adjustments[0], midpoint[1] + adjustments[1])  # Adjust left or right
+                    # elif finger_name == "Pinky":
+                    #     midpoint = (midpoint[0] + adjustments[2], midpoint[1] + adjustments[3])  # Adjust left or right
+                    # elif finger_name == "Index":
+                    #     midpoint = (midpoint[0] + adjustments[4], midpoint[1] + adjustments[5])  # Adjust left or right
+                    # elif finger_name == "Middle":
+                    #     midpoint = (midpoint[0] + adjustments[6], midpoint[1] + adjustments[7])  # Adjust left or right
                     # Store the adjusted midpoint for drawing lines later
                     midpoints.append(midpoint)
                     

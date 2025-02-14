@@ -22,7 +22,7 @@ class BoundingBoxAnalyzer:
 
         # order the points in the contour
         box = perspective.order_points(box)
-        cv2.drawContours(self.img_with_ref_obj, [box.astype("int")], -1, (255, 255, 255), 2)
+        # cv2.drawContours(self.img_with_ref_obj, [box.astype("int")], -1, (255, 255, 255), 2)
         
         # unpack the ordered bounding box
         (tl, tr, br, bl) = box
@@ -32,14 +32,14 @@ class BoundingBoxAnalyzer:
         (trbrX, trbrY) = self.midpoint(tr, br)
     
         # draw the midpoints on the image
-        cv2.circle(self.img_with_ref_obj, (int(tltrX), int(tltrY)), 5, (255, 0, 0), -1)
-        cv2.circle(self.img_with_ref_obj, (int(blbrX), int(blbrY)), 5, (255, 0, 0), -1)
-        cv2.circle(self.img_with_ref_obj, (int(tlblX), int(tlblY)), 5, (255, 0, 0), -1)
-        cv2.circle(self.img_with_ref_obj, (int(trbrX), int(trbrY)), 5, (255, 0, 0), -1)
+        # cv2.circle(self.img_with_ref_obj, (int(tltrX), int(tltrY)), 5, (255, 0, 0), -1)
+        # cv2.circle(self.img_with_ref_obj, (int(blbrX), int(blbrY)), 5, (255, 0, 0), -1)
+        # cv2.circle(self.img_with_ref_obj, (int(tlblX), int(tlblY)), 5, (255, 0, 0), -1)
+        # cv2.circle(self.img_with_ref_obj, (int(trbrX), int(trbrY)), 5, (255, 0, 0), -1)
         
         # draw lines between the midpoints
-        cv2.line(self.img_with_ref_obj, (int(tltrX), int(tltrY)), (int(blbrX), int(blbrY)), (255, 0, 255), 2)
-        cv2.line(self.img_with_ref_obj, (int(tlblX), int(tlblY)), (int(trbrX), int(trbrY)), (255, 0, 255), 2)
+        # cv2.line(self.img_with_ref_obj, (int(tltrX), int(tltrY)), (int(blbrX), int(blbrY)), (255, 0, 255), 2)
+        # cv2.line(self.img_with_ref_obj, (int(tlblX), int(tlblY)), (int(trbrX), int(trbrY)), (255, 0, 255), 2)
         
         # compute the Euclidean distance between the midpoints
         dA = dist.euclidean((tltrX, tltrY), (blbrX, blbrY))
@@ -54,12 +54,12 @@ class BoundingBoxAnalyzer:
         dimB = dB / self.pixelsPerMetric
         
         # draw the object sizes on the image
-        cv2.putText(self.img_with_ref_obj, "{:.1f}".format(dimA),
-                    (int(tltrX - 15), int(tltrY + 10)), cv2.FONT_HERSHEY_SIMPLEX,
-                    0.65, (255, 255, 255), 2)
-        cv2.putText(self.img_with_ref_obj, "{:.1f}".format(dimB),
-                    (int(trbrX + 10), int(trbrY)), cv2.FONT_HERSHEY_SIMPLEX,
-                    0.65, (255, 255, 255), 2)
+        # cv2.putText(self.img_with_ref_obj, "{:.2f}".format(dimA),
+        #             (int(tltrX - 15), int(tltrY + 10)), cv2.FONT_HERSHEY_SIMPLEX,
+        #             0.65, (255, 255, 255), 2)
+        # cv2.putText(self.img_with_ref_obj, "{:.2f}".format(dimB),
+        #             (int(trbrX + 10), int(trbrY)), cv2.FONT_HERSHEY_SIMPLEX,
+        #             0.65, (255, 255, 255), 2)
         
         return dimA, dimB  # Return the dimensions as a tuple
 
@@ -73,7 +73,7 @@ class BoundingBoxAnalyzer:
         box = perspective.order_points(box)
 
         # Draw the outline of the rotated bounding box
-        cv2.drawContours(self.img_with_ref_obj, [box.astype("int")], -1, (0, 255, 255), 2)
+        # cv2.drawContours(self.img_with_ref_obj, [box.astype("int")], -1, (0, 255, 255), 2)
 
         # Unpack the ordered bounding box
         (tl, tr, br, bl) = box
@@ -103,11 +103,11 @@ class BoundingBoxAnalyzer:
         #cv2.circle(self.img_with_ref_obj, (int(trbrX), int(trbrY)), 5, (255, 0, 0), -1)  # Right midpoint
         
         # Draw the new midpoints
-        cv2.circle(self.img_with_ref_obj, (int(midpoint_leftX), int(midpoint_leftY)), 5, (255, 0, 0), -1)
-        cv2.circle(self.img_with_ref_obj, (int(midpoint_rightX), int(midpoint_rightY)), 5, (255, 0, 0), -1)
+        # cv2.circle(self.img_with_ref_obj, (int(midpoint_leftX), int(midpoint_leftY)), 5, (255, 0, 0), -1)
+        # cv2.circle(self.img_with_ref_obj, (int(midpoint_rightX), int(midpoint_rightY)), 5, (255, 0, 0), -1)
 
         # Draw lines between the new midpoints
-        cv2.line(self.img_with_ref_obj, (int(midpoint_leftX), int(midpoint_leftY)), (int(midpoint_rightX), int(midpoint_rightY)), (255, 0, 255), 2)
+        # cv2.line(self.img_with_ref_obj, (int(midpoint_leftX), int(midpoint_leftY)), (int(midpoint_rightX), int(midpoint_rightY)), (255, 0, 255), 2)
 
         # Compute the Euclidean distances between the new midpoints
         dA = dist.euclidean((midpoint_leftX, midpoint_leftY), (midpoint_rightX, midpoint_rightY))  # Width
@@ -120,9 +120,9 @@ class BoundingBoxAnalyzer:
         dimB = dA / self.pixelsPerMetric  # Width in metric units
 
         # Draw the object sizes on the image
-        cv2.putText(self.img_with_ref_obj, "{:.1f}".format(dimB),
-                    (int(midpoint_leftX + 5), int(midpoint_leftY-10)),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+        # cv2.putText(self.img_with_ref_obj, "{:.2f}".format(dimB),
+        #             (int(midpoint_leftX + 5), int(midpoint_leftY-10)),
+        #             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
 
         return dimB  # Return the dimension as a single value
     

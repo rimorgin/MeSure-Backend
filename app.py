@@ -11,6 +11,7 @@ from calsize import BoundingBoxAnalyzer
 from io import BytesIO
 from PIL import Image
 import base64
+import size_object
 
 app = Flask(__name__)
 def detect_objects_on_white(image):
@@ -33,6 +34,7 @@ def detect_objects_on_white(image):
     return result_image, refined_mask
 
 def removeBG(image, filepath):
+    print('filepath', filepath)
     # Convert the OpenCV image (NumPy array) to a PIL Image
     pil_image = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
     
@@ -41,7 +43,9 @@ def removeBG(image, filepath):
         output_image = remover.process_image()
         if output_image.mode == 'RGBA':
             output_image = output_image.convert('RGB')
-        output_image.save(filepath)
+        output_image.save("temp_BG_removed.jpg")
+        print('filepath', filepath)
+
         removedBG = cv2.imread(filepath)
 
         return removedBG if removedBG is not None else None
@@ -79,22 +83,33 @@ def scale_down_image(image, max_width=700, max_height=700):
     return resized_image
 
 
+import cv2
+from imutils import contours
+
 def process_image_cnts(image, method):
     # Convert to grayscale and apply Gaussian blur
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     gray = cv2.GaussianBlur(gray, (11, 11), 0)
-    edged = cv2.Canny(gray, threshold1=50, threshold2=100)
+    
+    # Detect edges and apply morphological operations
+    edged = cv2.Canny(gray, 50, 100)
     edged = cv2.dilate(edged, None, iterations=1)
     edged = cv2.erode(edged, None, iterations=1)
-    cnts = cv2.findContours(edged.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-    # Check if any contours were found
-    if len(cnts) == 0:
-        print("No contours found")
-        return []  # Return an empty list instead of proceeding
     
+    # Find contours
+    cnts = cv2.findContours(edged.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    cnts = cnts[0] if len(cnts) == 2 else cnts[1]  # Ensure compatibility with OpenCV versions
+    
+    # Check if any contours were found
+    if not cnts:
+        print("No contours found")
+        return []
+    
+    # Sort contours
     cnts, _ = contours.sort_contours(cnts, method=method)
+    
     return cnts
+
 
 @app.route('/measure-fingers', methods=['POST'])
 def measure_fingers():
@@ -128,7 +143,7 @@ def measure_fingers():
     # Load the background-removed image
     output_filename = "temp_BG_removed.jpg"
     
-    noBG = removeBG(scaled_image, output_filename)
+    noBG = removeBG(scaled_image, "temp_BG_removed.jpg")
     if noBG is None:
         raise ValueError("Failed to remove background")
     noBG, hand_label = trackFinger(noBG)
@@ -194,13 +209,17 @@ def measure_fingers():
 
     img_base64 = base64.b64encode(img_io.getvalue()).decode('utf-8')
 
-    os.remove(output_filename)
+    # os.remove(output_filename)
 
+    data = size_object.sizeCalculate(hand_label)
+    print('HAND LABEL {}'.format(hand_label))
+    
     response = {
         "hand_label": hand_label,
-        "finger_measurements": avg_measurements,
+        "finger_measurement": data,
         "processed_image": img_base64
     }
+    # print(response)
 
     return jsonify(response)
 
@@ -292,7 +311,6 @@ def measure_wrist():
     img_base64 = base64.b64encode(img_io.getvalue()).decode('utf-8')
 
     os.remove(output_filename)
-    
     response = {
         "hand_label": hand_label,
         "average_wrist_measurement": avg_wrist_measurement,
