@@ -69,8 +69,6 @@ def sizeCalculateFingers(noBGorScaled, finger_mask, hand_label, reference_width)
     cnts = [x for x in cnts if cv2.contourArea(x) > 30]
     print(len(cnts))
     
-    i = int(0)
-    data = []
     index = 0
     finger_labels = None
 
@@ -78,42 +76,51 @@ def sizeCalculateFingers(noBGorScaled, finger_mask, hand_label, reference_width)
     left_hand = ['pinky', 'ring', 'middle', 'index', 'thumb']
     right_hand = ['thumb', 'index', 'middle', 'ring', 'pinky']
     
-    if hand_label == "Left":
-        finger_labels = left_hand
-    else:
-        finger_labels = right_hand
+    finger_labels = left_hand if hand_label == "Left" else right_hand
+    
+    # Initialize measurements dictionary
+    finger_measurements = {finger: [] for finger in finger_labels}
     
     
     for cnt in cnts:
         if index >= len(finger_labels):  # Stop if index exceeds the number of finger labels
             break  # Exit the loop
-        box = cv2.minAreaRect(cnt)
-        box = cv2.boxPoints(box)
-        box = np.array(box, dtype="int")
-        box = perspective.order_points(box)
-        (tl, tr, br, bl) = box
-  
-        cv2.drawContours(noBGorScaled, [box.astype("int")], -1, (0, 0, 255), 1)
-        mid_pt_horizontal = (tl[0] + int(abs(tr[0] - tl[0]) / 2), tl[1] + int(abs(tr[1] - tl[1]) / 2))
-        mid_pt_verticle = (tr[0] + int(abs(tr[0] - br[0]) / 2), tr[1] + int(abs(tr[1] - br[1]) / 2))
-        wid = euclidean(tl, tr) / pixel_per_mm
-        print("This is the Wid of the [{}] finger {}".format(finger_labels[index], wid))
-        ht = euclidean(tr, br) / pixel_per_mm
         
-        # finger processing validation, width is mistakenly being horizontal value
-        # width (horizontal) should not be higher than the height (vertical)
-        if wid > ht:
-            print("this is the actual width of the finger {} is {}".format(finger_labels[index],ht))
-            cv2.putText(noBGorScaled, "{:.2f}mm".format(ht), (int(mid_pt_verticle[0] + 15), int(mid_pt_verticle[1] - 10)),
-                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1)
-            data.append({finger_labels[index]: ht})
-        else:
-            cv2.putText(noBGorScaled, "{:.2f}mm".format(wid), (int(mid_pt_horizontal[0] - 15), int(mid_pt_horizontal[1] - 10)),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1)
-            data.append({finger_labels[index]: wid})
+        finger_name = finger_labels[index]
+        wid_values = []
+        
+        for _ in range(5):
+            box = cv2.minAreaRect(cnt)
+            box = cv2.boxPoints(box)
+            box = np.array(box, dtype="int")
+            box = perspective.order_points(box)
+            (tl, tr, br, bl) = box
+        
+            wid = euclidean(tl, tr) / pixel_per_mm
+            ht = euclidean(tr, br) / pixel_per_mm
+            
+            # finger processing validation, width is mistakenly being horizontal value
+            # width (horizontal) should not be higher than the height (vertical)
+            if wid > ht:
+                wid_values.append(ht)
+            else:
+                wid_values.append(wid)
+        
+        # Compute average width
+        avg_wid = sum(wid_values) / len(wid_values)
+        
+        # Store the final average measurement
+        finger_measurements[finger_name].append(avg_wid)
+        # Draw the measurement on the image
+        mid_pt_horizontal = (tl[0] + int(abs(tr[0] - tl[0]) / 2), tl[1] + int(abs(tr[1] - tl[1]) / 2))
+        mid_pt_vertical = (tr[0] + int(abs(tr[0] - br[0]) / 2), tr[1] + int(abs(tr[1] - br[1]) / 2))
+
+        cv2.putText(noBGorScaled, "{:.2f}mm".format(avg_wid), 
+                        (int(mid_pt_horizontal[0] - 20), int(mid_pt_horizontal[1] + 10)),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1)
         index += 1
-    print(data)
-    return data, noBGorScaled
+
+    return finger_measurements, noBGorScaled
 
 def sizeCalculateWrist(noBGorScaled, wrist_mask, hand_label, reference_width):
 
@@ -203,7 +210,6 @@ def sizeCalculateWrist(noBGorScaled, wrist_mask, hand_label, reference_width):
     return data, noBGorScaled
     
     
-
 
 
 

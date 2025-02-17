@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-from handtracker_final import HandImageProcessor
+from handtracker import HandImageProcessor
 from bgremover import BackgroundRemover
 from PIL import Image
 from flask import Flask, request, jsonify
@@ -58,7 +58,7 @@ def detect_coin(image):
             cv2.circle(image, (c[0], c[1]), c[2], (0, 255, 0), 2)
             cv2.circle(image, (c[0], c[1]), 1, (0, 0, 255), 1)
         
-        cv2.imwrite("processed/circle.png",image)
+        #cv2.imwrite("processed/circle.png",image)
         return True
 
     else:
@@ -156,6 +156,8 @@ def measure_fingers():
     print("detected a coin:", coin_detected)
     finger_mask, hand_label = trackFinger(noBG)
     
+    #cv2.imwrite('processed/finger_mask.png', finger_mask)
+    
     calSizeImg = None
     
     if coin_detected is False:
@@ -163,12 +165,12 @@ def measure_fingers():
     else:
         calSizeImg = noBG
         
-    cv2.imwrite('processed/temp.jpg', calSizeImg)
+    #cv2.imwrite('processed/temp.jpg', calSizeImg)
         
     data, processed_image = calsize.sizeCalculateFingers(calSizeImg, finger_mask, hand_label, reference_width)
     print('HAND LABEL {}'.format(hand_label))
     
-    cv2.imwrite('processed/processed_image_fingers.jpg', processed_image)
+    #cv2.imwrite('processed/processed_image_fingers.jpg', processed_image)
     
     # print(response)
     
@@ -215,7 +217,9 @@ def measure_wrist():
 
     coin_detected = detect_coin_contour(noBG)
     print("detected a coin:", coin_detected)
-    finger_mask, hand_label = trackWrist(noBG)
+    wrist_mask, hand_label = trackWrist(noBG)
+    
+    #cv2.imwrite('processed/wrist_mask.png', wrist_mask)
     
     calSizeImg = None
     
@@ -223,11 +227,11 @@ def measure_wrist():
         calSizeImg = scaled_image
     else:
         calSizeImg = noBG
-        
-    data, processed_image = calsize.sizeCalculateWrist(calSizeImg, finger_mask, hand_label, reference_width)
+    
+    data, processed_image = calsize.sizeCalculateWrist(calSizeImg, wrist_mask, hand_label, reference_width)
     print('HAND LABEL {}'.format(hand_label))
     
-    cv2.imwrite('processed/processed_image_wrist.jpg', processed_image)
+    #cv2.imwrite('processed/processed_image_wrist.jpg', processed_image)
     
     # print(response)
     
