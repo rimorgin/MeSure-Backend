@@ -79,7 +79,7 @@ def sizeCalculateFingers(noBGorScaled, finger_mask, hand_label, reference_width)
     finger_labels = left_hand if hand_label == "Left" else right_hand
     
     # Initialize measurements dictionary
-    finger_measurements = {finger: [] for finger in finger_labels}
+    finger_measurements = {}
     
     
     for cnt in cnts:
@@ -109,8 +109,8 @@ def sizeCalculateFingers(noBGorScaled, finger_mask, hand_label, reference_width)
         # Compute average width
         avg_wid = sum(wid_values) / len(wid_values)
         
-        # Store the final average measurement
-        finger_measurements[finger_name].append(avg_wid)
+        # Store the final average measurement as float
+        finger_measurements[finger_name] = avg_wid
         # Draw the measurement on the image
         mid_pt_horizontal = (tl[0] + int(abs(tr[0] - tl[0]) / 2), tl[1] + int(abs(tr[1] - tl[1]) / 2))
         mid_pt_vertical = (tr[0] + int(abs(tr[0] - br[0]) / 2), tr[1] + int(abs(tr[1] - br[1]) / 2))
