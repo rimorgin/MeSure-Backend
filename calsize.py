@@ -12,8 +12,6 @@ import cv2
 
 def sizeCalculateFingers(noBGorScaled, finger_mask, hand_label, reference_width):
     
-    #cv2.imwrite('temp_image.jpg', noBGorScaled)
-
     gray = cv2.cvtColor(noBGorScaled, cv2.COLOR_BGR2GRAY)
     blur = cv2.GaussianBlur(gray, (9, 9), 0)
 
@@ -49,14 +47,19 @@ def sizeCalculateFingers(noBGorScaled, finger_mask, hand_label, reference_width)
     pixel_per_mm = dist_in_pixel / dist_in_mm
     print("pixel per mm", pixel_per_mm)
 
-   
-
     gray = cv2.cvtColor(finger_mask, cv2.COLOR_BGR2GRAY)
-    blur = cv2.GaussianBlur(gray, (9, 9), 0)
-
-    edged = cv2.Canny(blur, 50, 100)
+    blur = cv2.GaussianBlur(gray, (11, 11), 0)
+    
+    cv2.imwrite('processed/blurred.png', blur)
+    
+    # Otsu's thresholding
+    ret, edged = cv2.threshold(blur, thresh=0, maxval=255, type=(cv2.THRESH_BINARY + cv2.THRESH_OTSU))
+    #edged = cv2.Canny(blur, threshold1=(ret * 0.1), threshold2=ret)
     edged = cv2.dilate(edged, None, iterations=1)
     edged = cv2.erode(edged, None, iterations=1)
+    
+    #cv2.imwrite('processed/edged.png', edged)
+    #cv2.imwrite('processed/thresh.png', thresh)
 
     # Find contours
     cnts = cv2.findContours(edged.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -66,8 +69,8 @@ def sizeCalculateFingers(noBGorScaled, finger_mask, hand_label, reference_width)
     (cnts, _) = contours.sort_contours(cnts)
     
     # Remove contours which are not large enough
-    cnts = [x for x in cnts if cv2.contourArea(x) > 30]
-    print(len(cnts))
+    cnts = [x for x in cnts if cv2.contourArea(x) > 150]
+    print('finger contours found: ',len(cnts))
     
     index = 0
     finger_labels = None
@@ -81,45 +84,42 @@ def sizeCalculateFingers(noBGorScaled, finger_mask, hand_label, reference_width)
     # Initialize measurements dictionary
     finger_measurements = {}
     
-    
+    print('finger labels length: ',len(finger_labels))
+    # Process each finger contour
     for cnt in cnts:
-        if index >= len(finger_labels):  # Stop if index exceeds the number of finger labels
-            break  # Exit the loop
+        #if index >= len(finger_labels):  # Stop if index exceeds the number of finger labels
+        #    break
+
+        # Get the minimum bounding rectangle
+        box = cv2.minAreaRect(cnt)
+        box = cv2.boxPoints(box)
+        box = np.array(box, dtype="int")
+        box = perspective.order_points(box)
+        (tl, tr, br, bl) = box
+
+        # Draw the bounding box
+        cv2.drawContours(noBGorScaled, [box.astype("int")], -1, (0, 255, 0), 2)
+
+        # Calculate width and height
+        wid = euclidean(tl, tr) / pixel_per_mm
+        ht = euclidean(tr, br) / pixel_per_mm
+
+        # Use the smaller dimension as the finger width
+        finger_width = min(wid, ht)
         
+        if finger_width <= 11.99:
+            continue
+
+        # Store the measurement
         finger_name = finger_labels[index]
-        wid_values = []
-        
-        for _ in range(5):
-            box = cv2.minAreaRect(cnt)
-            box = cv2.boxPoints(box)
-            box = np.array(box, dtype="int")
-            box = perspective.order_points(box)
-            (tl, tr, br, bl) = box
-        
-            wid = euclidean(tl, tr) / pixel_per_mm
-            ht = euclidean(tr, br) / pixel_per_mm
-            
-            # finger processing validation, width is mistakenly being horizontal value
-            # width (horizontal) should not be higher than the height (vertical)
-            if wid > ht:
-                wid_values.append(ht)
-            else:
-                wid_values.append(wid)
-        
-        # Compute average width
-        avg_wid = sum(wid_values) / len(wid_values)
-        
-        # Store the final average measurement as float
-        finger_measurements[finger_name] = avg_wid
+        finger_measurements[finger_name] = float(f"{finger_width:.2f}")
+
         # Draw the measurement on the image
         mid_pt_horizontal = (tl[0] + int(abs(tr[0] - tl[0]) / 2), tl[1] + int(abs(tr[1] - tl[1]) / 2))
-        mid_pt_vertical = (tr[0] + int(abs(tr[0] - br[0]) / 2), tr[1] + int(abs(tr[1] - br[1]) / 2))
-
-        cv2.putText(noBGorScaled, "{:.2f}mm".format(avg_wid), 
-                        (int(mid_pt_horizontal[0] - 20), int(mid_pt_horizontal[1] + 10)),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1)
+        cv2.putText(noBGorScaled, f"{finger_width:.2f}mm", 
+                    (int(mid_pt_horizontal[0] - 20), int(mid_pt_horizontal[1] + 10)),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1)
         index += 1
-
     return finger_measurements, noBGorScaled
 
 def sizeCalculateWrist(noBGorScaled, wrist_mask, hand_label, reference_width):

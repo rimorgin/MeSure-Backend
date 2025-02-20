@@ -37,7 +37,7 @@ class HandImageProcessor:
                 
                 # Define offset adjustments based on handedness
                 if hand_label == 'Left':
-                    adjustments = [-60, 50, 55, 0, -30, 20, -30, 5]  # Adjustments for left hand
+                    adjustments = [-400, 300, 75, 20, -30, 20, -30, 5]  # Adjustments for left hand
                 elif hand_label == 'Right':
                     adjustments = [50, 25, -55, 0, -30, 20, -30, 5]  # Adjustments for right hand
                 mylmList = []
@@ -75,10 +75,10 @@ class HandImageProcessor:
 
 
                     # Adjust midpoints based on handedness
-                    # if finger_name == "Thumb":
-                    #     midpoint = (midpoint[0] + adjustments[0], midpoint[1] + adjustments[1])  # Adjust left or right
-                    # elif finger_name == "Pinky":
-                    #     midpoint = (midpoint[0] + adjustments[2], midpoint[1] + adjustments[3])  # Adjust left or right
+                    if finger_name == "Thumb":
+                         midpoint = (midpoint[0] + adjustments[0], midpoint[1] + adjustments[1])  # Adjust left or right
+                    elif finger_name == "Pinky":
+                         midpoint = (midpoint[0] + adjustments[2], midpoint[1] + adjustments[3])  # Adjust left or right
                     # elif finger_name == "Index":
                     #     midpoint = (midpoint[0] + adjustments[4], midpoint[1] + adjustments[5])  # Adjust left or right
                     # elif finger_name == "Middle":

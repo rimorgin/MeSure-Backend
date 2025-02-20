@@ -144,11 +144,13 @@ def measure_fingers():
     orig_image = cv2.imdecode(np.frombuffer(file.read(), np.uint8), cv2.IMREAD_COLOR)
     
     # Scale down image for faster processing
-    scaled_image = scale_down_image(orig_image)
+    scaled_image = orig_image.copy()
     
     noBG = removeBG(scaled_image)
     if noBG is None:
         return jsonify({"error", "Failed to remove background"}), 400
+    
+    #cv2.imwrite('processed/noBG.png', noBG)
         
     # Detect coin in BG-removed image, if none present, default to orig img
 
@@ -156,7 +158,7 @@ def measure_fingers():
     print("detected a coin:", coin_detected)
     finger_mask, hand_label = trackFinger(noBG)
     
-    #cv2.imwrite('processed/finger_mask.png', finger_mask)
+    cv2.imwrite('processed/finger_mask.png', finger_mask)
     
     calSizeImg = None
     
@@ -164,13 +166,14 @@ def measure_fingers():
         calSizeImg = scaled_image
     else:
         calSizeImg = noBG
-        
-    #cv2.imwrite('processed/temp.jpg', calSizeImg)
+
+    
+    #cv2.imwrite('processed/noBGorScaled.png', calSizeImg)
         
     data, processed_image = calsize.sizeCalculateFingers(calSizeImg, finger_mask, hand_label, reference_width)
     print('HAND LABEL {}'.format(hand_label))
     
-    #cv2.imwrite('processed/processed_image_fingers.jpg', processed_image)
+    cv2.imwrite('processed/processed_image_fingers.jpg', processed_image)
     
     # print(response)
     

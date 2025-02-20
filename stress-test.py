@@ -27,7 +27,7 @@ threads = []
 
 start_time = time.time()
 
-for _ in range(3):
+for _ in range(30):
     t = threading.Thread(target=send_request)
     threads.append(t)
     t.start()
