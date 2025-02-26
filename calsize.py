@@ -15,7 +15,7 @@ def sizeCalculateFingers(noBGorScaled, finger_mask, hand_label, reference_width)
     #cv2.imwrite('temp_image.jpg', noBGorScaled)
 
     gray = cv2.cvtColor(noBGorScaled, cv2.COLOR_BGR2GRAY)
-    blur = cv2.GaussianBlur(gray, (9, 9), 0)
+    blur = cv2.GaussianBlur(gray, (3, 3), 2)
 
     edged = cv2.Canny(blur, 50, 100)
     edged = cv2.dilate(edged, None, iterations=1)
@@ -61,6 +61,8 @@ def sizeCalculateFingers(noBGorScaled, finger_mask, hand_label, reference_width)
     # Find contours
     cnts = cv2.findContours(edged.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     cnts = imutils.grab_contours(cnts)
+
+    # print("count:", cnts)
 
     # Sort contours from left to right as leftmost contour is reference object
     (cnts, _) = contours.sort_contours(cnts)
@@ -111,6 +113,7 @@ def sizeCalculateFingers(noBGorScaled, finger_mask, hand_label, reference_width)
         
         # Store the final average measurement as float
         finger_measurements[finger_name] = avg_wid
+        cv2.drawContours(noBGorScaled, [box.astype("int")], -1, (0, 0, 255), 1)
         # Draw the measurement on the image
         mid_pt_horizontal = (tl[0] + int(abs(tr[0] - tl[0]) / 2), tl[1] + int(abs(tr[1] - tl[1]) / 2))
         mid_pt_vertical = (tr[0] + int(abs(tr[0] - br[0]) / 2), tr[1] + int(abs(tr[1] - br[1]) / 2))

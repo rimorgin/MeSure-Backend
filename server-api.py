@@ -79,6 +79,20 @@ def trackWrist(image):
     return wrist, hand_label
 
 def removeBG(image):
+
+    # # Convert to float32 for more precise operations
+    # lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+    # l, a, b = cv2.split(lab)
+
+    # # Reduce contrast by adjusting L-channel intensity
+    # l = cv2.addWeighted(l, 1.4, np.full(l.shape, 128, dtype=np.uint8), 0, 0)
+
+    # # Merge back and convert to BGR
+    # lab = cv2.merge((l, a, b))
+    # image = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+
+    # cv2.imwrite("processed/contrast_adjusted.jpg", image)
+
     if isinstance(image, np.ndarray):
         image = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
     else:
@@ -94,7 +108,11 @@ def removeBG(image):
             output_image = np.array(output_image)
         output_image = cv2.cvtColor(output_image, cv2.COLOR_RGB2BGR)
         
+        
+
         return output_image
+    
+        
     except Exception as e:
         print(f"Background removal error: {e}")
         return None
@@ -144,6 +162,7 @@ def measure_fingers():
     orig_image = cv2.imdecode(np.frombuffer(file.read(), np.uint8), cv2.IMREAD_COLOR)
     
     # Scale down image for faster processing
+    # scaled_image = orig_image
     scaled_image = scale_down_image(orig_image)
     
     noBG = removeBG(scaled_image)
@@ -151,12 +170,15 @@ def measure_fingers():
         return jsonify({"error", "Failed to remove background"}), 400
         
     # Detect coin in BG-removed image, if none present, default to orig img
+    cv2.imwrite("processed/removed_contrasted_image.jpg", noBG)
+
+
 
     coin_detected = detect_coin_contour(noBG)
     print("detected a coin:", coin_detected)
     finger_mask, hand_label = trackFinger(noBG)
     
-    #cv2.imwrite('processed/finger_mask.png', finger_mask)
+    cv2.imwrite('processed/finger_mask.png', finger_mask)
     
     calSizeImg = None
     
@@ -165,12 +187,12 @@ def measure_fingers():
     else:
         calSizeImg = noBG
         
-    #cv2.imwrite('processed/temp.jpg', calSizeImg)
+    cv2.imwrite('processed/temp.jpg', calSizeImg)
         
     data, processed_image = calsize.sizeCalculateFingers(calSizeImg, finger_mask, hand_label, reference_width)
     print('HAND LABEL {}'.format(hand_label))
     
-    #cv2.imwrite('processed/processed_image_fingers.jpg', processed_image)
+    cv2.imwrite('processed/processed_image_fingers.jpg', processed_image)
     
     # print(response)
     
