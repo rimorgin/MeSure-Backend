@@ -9,6 +9,7 @@ from imutils import contours
 import numpy as np
 import imutils
 import cv2
+import sizeconverter
 
 def sizeCalculateFingers(noBGorScaled, finger_mask, hand_label, reference_width):
     
@@ -58,7 +59,7 @@ def sizeCalculateFingers(noBGorScaled, finger_mask, hand_label, reference_width)
     edged = cv2.dilate(edged, None, iterations=1)
     edged = cv2.erode(edged, None, iterations=1)
     
-    #cv2.imwrite('processed/edged.png', edged)
+    cv2.imwrite('processed/edged.png', edged)
     #cv2.imwrite('processed/thresh.png', thresh)
 
     # Find contours
@@ -103,16 +104,23 @@ def sizeCalculateFingers(noBGorScaled, finger_mask, hand_label, reference_width)
         # Calculate width and height
         wid = euclidean(tl, tr) / pixel_per_mm
         ht = euclidean(tr, br) / pixel_per_mm
+        
+        print(f'{finger_labels[index]}',ht)
+        print(f'{finger_labels[index]}',wid)
 
         # Use the smaller dimension as the finger width
         finger_width = min(wid, ht)
         
         if finger_width <= 11.99:
+            index += 1
             continue
+        
+        print(f'{finger_labels[index]}', float(f"{finger_width:.2f}"))
 
         # Store the measurement
         finger_name = finger_labels[index]
         finger_measurements[finger_name] = float(f"{finger_width:.2f}")
+        
 
         # Draw the measurement on the image
         mid_pt_horizontal = (tl[0] + int(abs(tr[0] - tl[0]) / 2), tl[1] + int(abs(tr[1] - tl[1]) / 2))
@@ -120,6 +128,9 @@ def sizeCalculateFingers(noBGorScaled, finger_mask, hand_label, reference_width)
                     (int(mid_pt_horizontal[0] - 20), int(mid_pt_horizontal[1] + 10)),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1)
         index += 1
+        
+    finger_measurements = sizeconverter.convert_all_ring_sizes(finger_measurements)
+    
     return finger_measurements, noBGorScaled
 
 def sizeCalculateWrist(noBGorScaled, wrist_mask, hand_label, reference_width):

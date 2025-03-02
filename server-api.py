@@ -144,6 +144,7 @@ def measure_fingers():
     orig_image = cv2.imdecode(np.frombuffer(file.read(), np.uint8), cv2.IMREAD_COLOR)
     
     # Scale down image for faster processing
+    #scaled_image = scale_down_image(orig_image)
     scaled_image = orig_image.copy()
     
     noBG = removeBG(scaled_image)
